@@ -369,19 +369,24 @@ private fun MessageBubble(message: UiMessage) {
             modifier = Modifier.widthIn(max = 320.dp)
         ) {
             if (!isUser && message.traces.isNotEmpty()) {
-                message.traces.forEach { trace ->
-                    Text(
-                        text = trace,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
-                        modifier = Modifier
-                            .padding(bottom = 4.dp)
-                            .background(
-                                MaterialTheme.colorScheme.surfaceVariant,
-                                RoundedCornerShape(8.dp)
-                            )
-                            .padding(horizontal = 8.dp, vertical = 2.dp)
-                    )
+                androidx.compose.foundation.layout.FlowRow(
+                    modifier = Modifier.padding(bottom = 4.dp),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp),
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)
+                ) {
+                    message.traces.forEach { trace ->
+                        Text(
+                            text = trace,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                            modifier = Modifier
+                                .background(
+                                    MaterialTheme.colorScheme.surfaceVariant,
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    }
                 }
             }
             Box(
