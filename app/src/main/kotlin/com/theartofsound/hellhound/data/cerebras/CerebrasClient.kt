@@ -102,9 +102,11 @@ class CerebrasClient(
             // sees its own decision in the next iteration.
             messages.add(msg)
             for (call in calls) {
-                onTrace("→ ${call.function.name}")
+                val fn = call.function ?: continue
+                val name = fn.name ?: continue
+                onTrace("→ $name")
                 val result = runCatching {
-                    executeTool(call.function.name, call.function.arguments)
+                    executeTool(name, fn.arguments)
                 }.getOrElse { "Tool failed: ${it.message ?: it::class.java.simpleName}" }
                 messages.add(
                     ChatMessage(
@@ -195,10 +197,11 @@ class CerebrasClient(
             messages.add(ChatMessage(role = "assistant", toolCalls = resolved))
 
             for (call in resolved) {
-                val name = call.function?.name ?: continue
+                val fn = call.function ?: continue
+                val name = fn.name ?: continue
                 emitter(StreamEvent.Trace("→ $name"))
                 val result = runCatching {
-                    executeTool(name, call.function.arguments)
+                    executeTool(name, fn.arguments)
                 }.getOrElse { "Tool failed: ${it.message ?: it::class.java.simpleName}" }
                 messages.add(
                     ChatMessage(
