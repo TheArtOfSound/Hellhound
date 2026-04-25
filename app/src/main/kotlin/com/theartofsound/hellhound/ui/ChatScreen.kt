@@ -308,42 +308,66 @@ private fun MessageBubble(message: UiMessage) {
     val isUser = message.role == "user"
     val bg = if (isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
     val fg = if (isUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-    val alignment = if (isUser) Alignment.CenterEnd else Alignment.CenterStart
     val context = LocalContext.current
     val speaker = remember(context) {
         (context.applicationContext as? com.theartofsound.hellhound.HellhoundApp)?.speaker
     }
-    Row(modifier = Modifier.fillMaxWidth()) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Bottom
+    ) {
         if (isUser) Box(modifier = Modifier.weight(1f))
-        Box(
-            modifier = Modifier
-                .widthIn(max = 320.dp)
-                .background(bg, RoundedCornerShape(12.dp))
-                .combinedClickable(
-                    onClick = {},
-                    onLongClick = {
-                        if (message.content.isNotBlank()) {
-                            val cm = context.getSystemService(ClipboardManager::class.java)
-                            cm?.setPrimaryClip(ClipData.newPlainText("Hellhound", message.content))
-                        }
-                    }
-                )
-                .padding(horizontal = 12.dp, vertical = 8.dp)
+        androidx.compose.foundation.layout.Column(
+            modifier = Modifier.widthIn(max = 320.dp)
         ) {
-            val display = message.content.ifEmpty { if (message.streaming) "…" else "" }
-            if (isUser) {
-                Text(text = display, color = fg)
-            } else {
-                Text(text = rememberMarkdown(display), color = fg)
+            if (!isUser && message.traces.isNotEmpty()) {
+                message.traces.forEach { trace ->
+                    Text(
+                        text = trace,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                        modifier = Modifier
+                            .padding(bottom = 4.dp)
+                            .background(
+                                MaterialTheme.colorScheme.surfaceVariant,
+                                RoundedCornerShape(8.dp)
+                            )
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                }
+            }
+            Box(
+                modifier = Modifier
+                    .background(bg, RoundedCornerShape(12.dp))
+                    .combinedClickable(
+                        onClick = {},
+                        onLongClick = {
+                            if (message.content.isNotBlank()) {
+                                val cm = context.getSystemService(ClipboardManager::class.java)
+                                cm?.setPrimaryClip(ClipData.newPlainText("Hellhound", message.content))
+                            }
+                        }
+                    )
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                val display = message.content.ifEmpty {
+                    if (message.streaming) "…" else ""
+                }
+                if (display.isNotEmpty() || isUser) {
+                    if (isUser) {
+                        Text(text = display, color = fg)
+                    } else {
+                        Text(text = rememberMarkdown(display), color = fg)
+                    }
+                } else {
+                    // Streaming with no content yet but maybe traces visible above.
+                    Text(text = "…", color = fg.copy(alpha = 0.6f))
+                }
             }
         }
         if (!isUser && message.content.isNotBlank() && !message.streaming && speaker != null) {
             IconButton(onClick = { speaker.speak(message.content) }) {
-                Icon(
-                    Icons.Filled.VolumeUp,
-                    contentDescription = "Speak aloud",
-                    modifier = Modifier
-                )
+                Icon(Icons.Filled.VolumeUp, contentDescription = "Speak aloud")
             }
         }
         if (!isUser) Box(modifier = Modifier.weight(1f))

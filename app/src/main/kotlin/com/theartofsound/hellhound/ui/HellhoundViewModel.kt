@@ -17,7 +17,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-data class UiMessage(val role: String, val content: String, val streaming: Boolean = false)
+data class UiMessage(
+    val role: String,
+    val content: String,
+    val streaming: Boolean = false,
+    val traces: List<String> = emptyList()
+)
 
 data class HellhoundUiState(
     val messages: List<UiMessage> = emptyList(),
@@ -230,19 +235,14 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
                             val state = _uiState.value
                             val updated = state.messages.toMutableList()
                             val last = updated.last()
-                            val withTrace = if (last.content.isBlank()) trace
-                            else "${last.content}\n$trace"
-                            updated[updated.lastIndex] = last.copy(content = withTrace)
+                            updated[updated.lastIndex] = last.copy(traces = last.traces + trace)
                             _uiState.value = state.copy(messages = updated)
                         }
                     )
                     val state = _uiState.value
                     val updated = state.messages.toMutableList()
                     val last = updated.last()
-                    val withTrace = last.content
-                    val combined = if (withTrace.isBlank()) finalText
-                    else "$withTrace\n\n$finalText"
-                    updated[updated.lastIndex] = last.copy(content = combined)
+                    updated[updated.lastIndex] = last.copy(content = finalText)
                     _uiState.value = state.copy(messages = updated)
                     finalizeStream(error = null)
                 } else {
