@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -66,6 +67,9 @@ fun ChatScreen(
     contentPadding: PaddingValues
 ) {
     val context = LocalContext.current
+    val speaker = remember(context) {
+        (context.applicationContext as? com.theartofsound.hellhound.HellhoundApp)?.speaker
+    }
     val voiceAvailable = remember { SpeechRecognizer.isRecognitionAvailable(context) }
     val voiceLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -100,6 +104,11 @@ fun ChatScreen(
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.weight(1f)
             )
+            if (speaker != null) {
+                IconButton(onClick = { speaker.stop() }) {
+                    Icon(Icons.Filled.VolumeOff, contentDescription = "Stop speaking")
+                }
+            }
             IconButton(onClick = onClearHistory) {
                 Icon(Icons.Filled.DeleteOutline, contentDescription = "Clear")
             }
