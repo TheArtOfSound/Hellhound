@@ -18,6 +18,7 @@
     <string name="chat_hint">Message Hellhound</string>
     <string name="chat_send">Send</string>
     <string name="chat_empty">Ask anything. Powered by Cerebras.</string>
+    <string name="chat_empty_no_key">Tap Settings below and paste your Cerebras API key to begin. Sign up at cloud.cerebras.ai.</string>
     <string name="chat_settings">Settings</string>
     <string name="settings_api_key_label">Cerebras API key</string>
     <string name="settings_model_label">Model</string>

@@ -66,9 +66,14 @@ fun ChatScreen(
         }
 
         if (state.messages.isEmpty()) {
+            val emptyCopy = if (state.apiKey.isBlank()) {
+                stringResource(R.string.chat_empty_no_key)
+            } else {
+                stringResource(R.string.chat_empty)
+            }
             Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Text(
-                    text = stringResource(R.string.chat_empty),
+                    text = emptyCopy,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(32.dp),
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
