@@ -30,6 +30,7 @@ fun HellhoundRoot(
     onSaveApiKey: (String) -> Unit,
     onSelectModel: (String) -> Unit,
     onSaveSystemPrompt: (String) -> Unit,
+    onSetAutoSendVoice: (Boolean) -> Unit,
     onClearHistory: () -> Unit,
     onRefreshPermissions: () -> Unit
 ) {
@@ -78,6 +79,7 @@ fun HellhoundRoot(
                     onSaveApiKey = onSaveApiKey,
                     onSelectModel = onSelectModel,
                     onSaveSystemPrompt = onSaveSystemPrompt,
+                    onSetAutoSendVoice = onSetAutoSendVoice,
                     contentPadding = padding
                 )
             }

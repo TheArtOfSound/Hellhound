@@ -1,6 +1,7 @@
 package com.theartofsound.hellhound.data
 
 import android.content.Context
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -25,6 +26,9 @@ class SettingsStore(private val context: Context) {
     }
     val systemPrompt: Flow<String> = context.dataStore.data.map {
         it[KEY_SYSTEM_PROMPT] ?: DEFAULT_SYSTEM_PROMPT
+    }
+    val autoSendVoice: Flow<Boolean> = context.dataStore.data.map {
+        it[KEY_AUTO_SEND_VOICE] ?: false
     }
     val history: Flow<List<StoredMessage>> = context.dataStore.data.map { prefs ->
         val raw = prefs[KEY_HISTORY] ?: return@map emptyList()
@@ -54,6 +58,10 @@ class SettingsStore(private val context: Context) {
         }
     }
 
+    suspend fun setAutoSendVoice(value: Boolean) {
+        context.dataStore.edit { it[KEY_AUTO_SEND_VOICE] = value }
+    }
+
     suspend fun setHistory(messages: List<StoredMessage>) {
         val payload = storeJson.encodeToString(
             ListSerializer(StoredMessage.serializer()), messages
@@ -72,5 +80,6 @@ class SettingsStore(private val context: Context) {
         private val KEY_MODEL = stringPreferencesKey("cerebras_model")
         private val KEY_SYSTEM_PROMPT = stringPreferencesKey("system_prompt")
         private val KEY_HISTORY = stringPreferencesKey("chat_history_v1")
+        private val KEY_AUTO_SEND_VOICE = booleanPreferencesKey("auto_send_voice")
     }
 }

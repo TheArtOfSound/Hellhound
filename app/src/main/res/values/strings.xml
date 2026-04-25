@@ -26,4 +26,5 @@
     <string name="settings_clear">Clear</string>
     <string name="settings_system_prompt_label">System prompt</string>
     <string name="settings_system_prompt_reset">Reset to default</string>
+    <string name="settings_auto_send_voice">Auto-send voice input</string>
 </resources>

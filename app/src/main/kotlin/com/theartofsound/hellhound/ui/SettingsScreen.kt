@@ -12,6 +12,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -33,6 +34,7 @@ fun SettingsScreen(
     onSaveApiKey: (String) -> Unit,
     onSelectModel: (String) -> Unit,
     onSaveSystemPrompt: (String) -> Unit,
+    onSetAutoSendVoice: (Boolean) -> Unit,
     contentPadding: PaddingValues
 ) {
     var draft by rememberSaveable(state.apiKey) { mutableStateOf(state.apiKey) }
@@ -102,6 +104,22 @@ fun SettingsScreen(
             TextButton(onClick = { promptDraft = ""; onSaveSystemPrompt("") }) {
                 Text(stringResource(R.string.settings_system_prompt_reset))
             }
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 24.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                stringResource(R.string.settings_auto_send_voice),
+                modifier = Modifier.weight(1f)
+            )
+            Switch(
+                checked = state.autoSendVoice,
+                onCheckedChange = onSetAutoSendVoice
+            )
         }
     }
 }

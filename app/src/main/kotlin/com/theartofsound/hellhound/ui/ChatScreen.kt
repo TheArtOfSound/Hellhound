@@ -74,6 +74,7 @@ fun ChatScreen(
             if (spoken.isNotEmpty()) {
                 val merged = if (state.input.isBlank()) spoken else "${state.input} $spoken"
                 onUpdateInput(merged)
+                if (state.autoSendVoice && state.apiKey.isNotBlank()) onSendMessage()
             }
         }
     }

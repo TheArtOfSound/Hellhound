@@ -42,6 +42,7 @@ class MainActivity : ComponentActivity() {
                         onSaveApiKey = viewModel::saveApiKey,
                         onSelectModel = viewModel::selectModel,
                         onSaveSystemPrompt = viewModel::saveSystemPrompt,
+                        onSetAutoSendVoice = viewModel::setAutoSendVoice,
                         onClearHistory = viewModel::clearHistory,
                         onRefreshPermissions = viewModel::refreshPermissions
                     )

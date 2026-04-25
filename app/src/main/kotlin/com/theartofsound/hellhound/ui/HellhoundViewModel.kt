@@ -26,6 +26,7 @@ data class HellhoundUiState(
     val apiKey: String = "",
     val model: String = "",
     val systemPrompt: String = "",
+    val autoSendVoice: Boolean = false,
     val availableModels: List<String> = emptyList(),
     val accessibilityEnabled: Boolean = false,
     val notificationAccessEnabled: Boolean = false
@@ -47,15 +48,22 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
             hellhound.updateCachedKey(key)
             val model = hellhound.settings.model.first()
             val systemPrompt = hellhound.settings.systemPrompt.first()
+            val autoSend = hellhound.settings.autoSendVoice.first()
             val stored = hellhound.settings.history.first()
             _uiState.value = _uiState.value.copy(
                 apiKey = key.orEmpty(),
                 model = model,
                 systemPrompt = systemPrompt,
+                autoSendVoice = autoSend,
                 messages = stored.map { UiMessage(it.role, it.content) }
             )
         }
         refreshPermissions()
+    }
+
+    fun setAutoSendVoice(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(autoSendVoice = enabled)
+        viewModelScope.launch { hellhound.settings.setAutoSendVoice(enabled) }
     }
 
     fun saveSystemPrompt(prompt: String) {
