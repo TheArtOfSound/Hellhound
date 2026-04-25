@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.theartofsound.hellhound.HellhoundApp
+import com.theartofsound.hellhound.data.StoredMessage
 import com.theartofsound.hellhound.data.cerebras.ChatMessage
 import com.theartofsound.hellhound.services.HellhoundAccessibilityService
 import com.theartofsound.hellhound.services.HellhoundNotificationListener
@@ -44,9 +45,21 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
             val key = hellhound.settings.apiKey.first()
             hellhound.updateCachedKey(key)
             val model = hellhound.settings.model.first()
-            _uiState.value = _uiState.value.copy(apiKey = key.orEmpty(), model = model)
+            val stored = hellhound.settings.history.first()
+            _uiState.value = _uiState.value.copy(
+                apiKey = key.orEmpty(),
+                model = model,
+                messages = stored.map { UiMessage(it.role, it.content) }
+            )
         }
         refreshPermissions()
+    }
+
+    private fun persistHistory() {
+        val toSave = _uiState.value.messages
+            .filter { !it.streaming && it.content.isNotBlank() }
+            .map { StoredMessage(role = it.role, content = it.content) }
+        viewModelScope.launch { hellhound.settings.setHistory(toSave) }
     }
 
     fun updateInput(text: String) {
@@ -72,6 +85,7 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
     fun clearHistory() {
         cancelStream()
         _uiState.value = _uiState.value.copy(messages = emptyList(), error = null)
+        persistHistory()
     }
 
     fun cancelStream() {
@@ -140,6 +154,7 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         _uiState.value = state.copy(messages = updated, sending = false, error = error)
+        persistHistory()
     }
 
     private fun buildSystemPrompt(): String {
