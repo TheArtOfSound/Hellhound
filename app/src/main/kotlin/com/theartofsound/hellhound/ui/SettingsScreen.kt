@@ -42,6 +42,7 @@ fun SettingsScreen(
     onSelectModel: (String) -> Unit,
     onSaveSystemPrompt: (String) -> Unit,
     onSetAutoSendVoice: (Boolean) -> Unit,
+    onSetAgentMode: (Boolean) -> Unit,
     onRefreshModels: () -> Unit,
     contentPadding: PaddingValues
 ) {
@@ -174,6 +175,27 @@ fun SettingsScreen(
             Switch(
                 checked = state.autoSendVoice,
                 onCheckedChange = onSetAutoSendVoice
+            )
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 24.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.settings_agent_mode))
+                Text(
+                    stringResource(R.string.settings_agent_mode_body),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+            Switch(
+                checked = state.agentMode,
+                onCheckedChange = onSetAgentMode
             )
         }
     }

@@ -2,11 +2,15 @@ package com.theartofsound.hellhound.data.cerebras
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 @Serializable
 data class ChatMessage(
     val role: String,
-    val content: String
+    val content: String? = null,
+    val name: String? = null,
+    @SerialName("tool_calls") val toolCalls: List<ToolCall>? = null,
+    @SerialName("tool_call_id") val toolCallId: String? = null
 )
 
 @Serializable
@@ -15,7 +19,35 @@ data class ChatCompletionRequest(
     val messages: List<ChatMessage>,
     val stream: Boolean = false,
     val temperature: Double = 0.7,
-    @SerialName("max_tokens") val maxTokens: Int? = null
+    @SerialName("max_tokens") val maxTokens: Int? = null,
+    val tools: List<ToolSpec>? = null,
+    @SerialName("tool_choice") val toolChoice: String? = null
+)
+
+@Serializable
+data class ToolSpec(
+    val type: String = "function",
+    val function: ToolFunction
+)
+
+@Serializable
+data class ToolFunction(
+    val name: String,
+    val description: String,
+    val parameters: JsonElement
+)
+
+@Serializable
+data class ToolCall(
+    val id: String,
+    val type: String = "function",
+    val function: ToolCallFunction
+)
+
+@Serializable
+data class ToolCallFunction(
+    val name: String,
+    val arguments: String
 )
 
 @Serializable
@@ -37,7 +69,8 @@ data class Choice(
 @Serializable
 data class Delta(
     val role: String? = null,
-    val content: String? = null
+    val content: String? = null,
+    @SerialName("tool_calls") val toolCalls: List<ToolCall>? = null
 )
 
 @Serializable

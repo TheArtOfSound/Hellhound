@@ -5,6 +5,7 @@ import com.theartofsound.hellhound.audio.Speaker
 import com.theartofsound.hellhound.data.ChatRepository
 import com.theartofsound.hellhound.data.SettingsStore
 import com.theartofsound.hellhound.data.cerebras.CerebrasClient
+import com.theartofsound.hellhound.tools.ToolDispatcher
 import java.util.concurrent.atomic.AtomicReference
 
 class HellhoundApp : Application() {
@@ -15,6 +16,8 @@ class HellhoundApp : Application() {
         private set
     lateinit var speaker: Speaker
         private set
+    lateinit var tools: ToolDispatcher
+        private set
 
     private val cachedKey = AtomicReference<String?>(null)
 
@@ -24,6 +27,7 @@ class HellhoundApp : Application() {
         val client = CerebrasClient(apiKeyProvider = { cachedKey.get() })
         repository = ChatRepository(client)
         speaker = Speaker(this)
+        tools = ToolDispatcher(this)
     }
 
     override fun onTerminate() {

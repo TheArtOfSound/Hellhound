@@ -30,6 +30,9 @@ class SettingsStore(private val context: Context) {
     val autoSendVoice: Flow<Boolean> = context.dataStore.data.map {
         it[KEY_AUTO_SEND_VOICE] ?: false
     }
+    val agentMode: Flow<Boolean> = context.dataStore.data.map {
+        it[KEY_AGENT_MODE] ?: true
+    }
     val history: Flow<List<StoredMessage>> = context.dataStore.data.map { prefs ->
         val raw = prefs[KEY_HISTORY] ?: return@map emptyList()
         runCatching {
@@ -62,6 +65,10 @@ class SettingsStore(private val context: Context) {
         context.dataStore.edit { it[KEY_AUTO_SEND_VOICE] = value }
     }
 
+    suspend fun setAgentMode(value: Boolean) {
+        context.dataStore.edit { it[KEY_AGENT_MODE] = value }
+    }
+
     suspend fun setHistory(messages: List<StoredMessage>) {
         val payload = storeJson.encodeToString(
             ListSerializer(StoredMessage.serializer()), messages
@@ -73,13 +80,17 @@ class SettingsStore(private val context: Context) {
 
     companion object {
         const val DEFAULT_SYSTEM_PROMPT =
-            "You are Hellhound, a personal Android assistant powered by Cerebras inference. " +
-            "Be concise. Cite which context you used (screen / notifications) when relevant."
+            "You are Hellhound, a personal Android assistant running on the user's phone. " +
+            "Be direct and concise. When agent mode is on, you have tools to read the " +
+            "foreground screen, recent notifications, the clipboard, current time, and " +
+            "device info — call them whenever the answer depends on the user's current " +
+            "context, then answer in plain language."
 
         private val KEY_API = stringPreferencesKey("cerebras_api_key")
         private val KEY_MODEL = stringPreferencesKey("cerebras_model")
         private val KEY_SYSTEM_PROMPT = stringPreferencesKey("system_prompt")
         private val KEY_HISTORY = stringPreferencesKey("chat_history_v1")
         private val KEY_AUTO_SEND_VOICE = booleanPreferencesKey("auto_send_voice")
+        private val KEY_AGENT_MODE = booleanPreferencesKey("agent_mode")
     }
 }

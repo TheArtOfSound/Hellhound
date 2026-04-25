@@ -27,6 +27,7 @@ data class HellhoundUiState(
     val model: String = "",
     val systemPrompt: String = "",
     val autoSendVoice: Boolean = false,
+    val agentMode: Boolean = true,
     val availableModels: List<String> = emptyList(),
     val refreshingModels: Boolean = false,
     val modelRefreshError: String? = null,
@@ -51,12 +52,14 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
             val model = hellhound.settings.model.first()
             val systemPrompt = hellhound.settings.systemPrompt.first()
             val autoSend = hellhound.settings.autoSendVoice.first()
+            val agent = hellhound.settings.agentMode.first()
             val stored = hellhound.settings.history.first()
             _uiState.value = _uiState.value.copy(
                 apiKey = key.orEmpty(),
                 model = model,
                 systemPrompt = systemPrompt,
                 autoSendVoice = autoSend,
+                agentMode = agent,
                 messages = stored.map { UiMessage(it.role, it.content) }
             )
             // Pull the real model list as soon as we have a key; avoids the
@@ -69,6 +72,11 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
     fun setAutoSendVoice(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(autoSendVoice = enabled)
         viewModelScope.launch { hellhound.settings.setAutoSendVoice(enabled) }
+    }
+
+    fun setAgentMode(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(agentMode = enabled)
+        viewModelScope.launch { hellhound.settings.setAgentMode(enabled) }
     }
 
     fun saveSystemPrompt(prompt: String) {
@@ -131,9 +139,8 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
                 val models = hellhound.repository.listModels()
                 val effectiveList = models.ifEmpty { _uiState.value.availableModels }
                 val currentModel = _uiState.value.model
-                val newModel = if (currentModel.isBlank() || currentModel !in effectiveList) {
-                    effectiveList.firstOrNull() ?: currentModel
-                } else currentModel
+                val agent = _uiState.value.agentMode
+                val newModel = pickModel(currentModel, effectiveList, preferToolCapable = agent)
                 if (newModel != currentModel && newModel.isNotBlank()) {
                     hellhound.settings.setModel(newModel)
                 }
@@ -192,18 +199,46 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
             }
             val systemPrompt = buildSystemPrompt()
             try {
-                hellhound.repository.streamReply(
-                    model = _uiState.value.model,
-                    history = history,
-                    systemPrompt = systemPrompt
-                ).collect { chunk ->
+                if (_uiState.value.agentMode) {
+                    val finalText = hellhound.repository.runAgent(
+                        model = _uiState.value.model,
+                        history = history,
+                        tools = com.theartofsound.hellhound.tools.ToolDispatcher.SPECS,
+                        executeTool = { name, argsJson -> hellhound.tools.dispatch(name, argsJson) },
+                        systemPrompt = systemPrompt,
+                        onTrace = { trace ->
+                            val state = _uiState.value
+                            val updated = state.messages.toMutableList()
+                            val last = updated.last()
+                            val withTrace = if (last.content.isBlank()) trace
+                            else "${last.content}\n$trace"
+                            updated[updated.lastIndex] = last.copy(content = withTrace)
+                            _uiState.value = state.copy(messages = updated)
+                        }
+                    )
                     val state = _uiState.value
                     val updated = state.messages.toMutableList()
                     val last = updated.last()
-                    updated[updated.lastIndex] = last.copy(content = last.content + chunk)
+                    val withTrace = last.content
+                    val combined = if (withTrace.isBlank()) finalText
+                    else "$withTrace\n\n$finalText"
+                    updated[updated.lastIndex] = last.copy(content = combined)
                     _uiState.value = state.copy(messages = updated)
+                    finalizeStream(error = null)
+                } else {
+                    hellhound.repository.streamReply(
+                        model = _uiState.value.model,
+                        history = history,
+                        systemPrompt = systemPrompt
+                    ).collect { chunk ->
+                        val state = _uiState.value
+                        val updated = state.messages.toMutableList()
+                        val last = updated.last()
+                        updated[updated.lastIndex] = last.copy(content = last.content + chunk)
+                        _uiState.value = state.copy(messages = updated)
+                    }
+                    finalizeStream(error = null)
                 }
-                finalizeStream(error = null)
             } catch (cancel: CancellationException) {
                 finalizeStream(error = null)
                 throw cancel
@@ -233,6 +268,11 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
         val basePrompt = state.systemPrompt.ifBlank {
             com.theartofsound.hellhound.data.SettingsStore.DEFAULT_SYSTEM_PROMPT
         }
+        // In agent mode the model has tools and can fetch context itself,
+        // so we skip the manual dump to save tokens. In plain mode we
+        // pre-load whatever is already cached so it's available without
+        // an extra round-trip.
+        if (state.agentMode) return basePrompt
         val context = buildString {
             if (state.accessibilityEnabled) {
                 val screen = HellhoundAccessibilityService.lastScreenSnapshot()
@@ -261,5 +301,36 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
     private companion object {
         const val SCREEN_LIMIT = 4000
         const val NOTIFICATION_LIMIT = 10
+
+        // Cerebras model prefixes empirically observed to emit proper
+        // OpenAI tool_calls. llama3.x-8b inlines the call as plain text
+        // and is unusable in agent mode.
+        private val TOOL_CAPABLE_PREFIXES = listOf(
+            "qwen-3-235b",
+            "gpt-oss-",
+            "qwen-3-32b",
+            "llama-3.3-",
+            "llama-4-",
+            "deepseek-r1"
+        )
+
+        private fun isToolCapable(id: String): Boolean =
+            TOOL_CAPABLE_PREFIXES.any { id.startsWith(it) }
+
+        private fun pickModel(
+            current: String,
+            available: List<String>,
+            preferToolCapable: Boolean
+        ): String {
+            if (available.isEmpty()) return current
+            val firstToolCapable = available.firstOrNull(::isToolCapable)
+            return when {
+                preferToolCapable && firstToolCapable != null && !isToolCapable(current) ->
+                    firstToolCapable
+                current.isBlank() || current !in available ->
+                    firstToolCapable ?: available.first()
+                else -> current
+            }
+        }
     }
 }

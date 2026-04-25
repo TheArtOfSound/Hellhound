@@ -62,6 +62,61 @@ class CerebrasClient(
         }
     }
 
+    /**
+     * Runs an agent loop: calls the model with [tools], dispatches each
+     * requested tool via [executeTool], appends results to history, loops
+     * until the model emits a final text answer or [maxIterations] is hit.
+     *
+     * Emits a string for every tool invocation (so the UI can show "→ used
+     * get_screen_text") and finally one or more chunks for the assistant's
+     * final answer. The repository can stream the very last response if it
+     * wants — for now the agent does it non-streaming for simplicity.
+     */
+    suspend fun runAgent(
+        model: String,
+        history: List<ChatMessage>,
+        tools: List<ToolSpec>,
+        executeTool: suspend (name: String, argsJson: String) -> String,
+        maxIterations: Int = 6,
+        onTrace: (String) -> Unit = {}
+    ): String {
+        val messages = history.toMutableList()
+        repeat(maxIterations) {
+            val response = complete(
+                ChatCompletionRequest(
+                    model = model,
+                    messages = messages,
+                    tools = tools,
+                    toolChoice = "auto",
+                    stream = false
+                )
+            )
+            val msg = response.choices.firstOrNull()?.message
+                ?: return "(no response)"
+            val calls = msg.toolCalls
+            if (calls.isNullOrEmpty()) {
+                return msg.content.orEmpty()
+            }
+            // Record assistant's tool-call message verbatim so the model
+            // sees its own decision in the next iteration.
+            messages.add(msg)
+            for (call in calls) {
+                onTrace("→ ${call.function.name}")
+                val result = runCatching {
+                    executeTool(call.function.name, call.function.arguments)
+                }.getOrElse { "Tool failed: ${it.message ?: it::class.java.simpleName}" }
+                messages.add(
+                    ChatMessage(
+                        role = "tool",
+                        content = result,
+                        toolCallId = call.id
+                    )
+                )
+            }
+        }
+        return "(agent gave up after $maxIterations iterations)"
+    }
+
     private fun cerebrasException(status: Int, body: String): CerebrasException {
         val parsed = runCatching {
             json.decodeFromString(ApiErrorEnvelope.serializer(), body)
