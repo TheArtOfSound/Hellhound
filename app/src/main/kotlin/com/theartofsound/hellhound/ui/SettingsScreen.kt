@@ -32,9 +32,11 @@ fun SettingsScreen(
     state: HellhoundUiState,
     onSaveApiKey: (String) -> Unit,
     onSelectModel: (String) -> Unit,
+    onSaveSystemPrompt: (String) -> Unit,
     contentPadding: PaddingValues
 ) {
     var draft by rememberSaveable(state.apiKey) { mutableStateOf(state.apiKey) }
+    var promptDraft by rememberSaveable(state.systemPrompt) { mutableStateOf(state.systemPrompt) }
 
     Column(
         modifier = Modifier
@@ -76,6 +78,29 @@ fun SettingsScreen(
                     label = { Text(model) },
                     modifier = Modifier.padding(end = 8.dp)
                 )
+            }
+        }
+
+        Text(
+            stringResource(R.string.settings_system_prompt_label),
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(top = 24.dp, bottom = 8.dp)
+        )
+        OutlinedTextField(
+            value = promptDraft,
+            onValueChange = { promptDraft = it },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            minLines = 3,
+            maxLines = 8
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Button(onClick = { onSaveSystemPrompt(promptDraft) }) {
+                Text(stringResource(R.string.settings_save))
+            }
+            TextButton(onClick = { promptDraft = ""; onSaveSystemPrompt("") }) {
+                Text(stringResource(R.string.settings_system_prompt_reset))
             }
         }
     }

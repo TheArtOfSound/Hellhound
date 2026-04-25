@@ -39,6 +39,7 @@ class MainActivity : ComponentActivity() {
                         onUpdateInput = viewModel::updateInput,
                         onSaveApiKey = viewModel::saveApiKey,
                         onSelectModel = viewModel::selectModel,
+                        onSaveSystemPrompt = viewModel::saveSystemPrompt,
                         onClearHistory = viewModel::clearHistory,
                         onRefreshPermissions = viewModel::refreshPermissions
                     )

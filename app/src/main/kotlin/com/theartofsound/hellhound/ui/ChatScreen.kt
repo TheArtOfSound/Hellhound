@@ -1,6 +1,10 @@
 package com.theartofsound.hellhound.ui
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,6 +38,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -108,8 +114,19 @@ fun ChatScreen(
             }
         } else {
             val listState = rememberLazyListState()
+            // Only auto-scroll to the latest message when the user is already
+            // pinned at (or near) the bottom — never fight a deliberate scroll.
+            val pinnedToBottom by remember {
+                derivedStateOf {
+                    val info = listState.layoutInfo
+                    val last = info.visibleItemsInfo.lastOrNull() ?: return@derivedStateOf true
+                    last.index >= state.messages.lastIndex - 1
+                }
+            }
             LaunchedEffect(state.messages.size, state.messages.lastOrNull()?.content?.length) {
-                listState.animateScrollToItem(state.messages.lastIndex.coerceAtLeast(0))
+                if (pinnedToBottom) {
+                    listState.animateScrollToItem(state.messages.lastIndex.coerceAtLeast(0))
+                }
             }
             LazyColumn(
                 state = listState,
@@ -180,17 +197,28 @@ fun ChatScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MessageBubble(message: UiMessage) {
     val isUser = message.role == "user"
     val bg = if (isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
     val fg = if (isUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
     val alignment = if (isUser) Alignment.CenterEnd else Alignment.CenterStart
+    val context = LocalContext.current
     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = alignment) {
         Box(
             modifier = Modifier
                 .widthIn(max = 320.dp)
                 .background(bg, RoundedCornerShape(12.dp))
+                .combinedClickable(
+                    onClick = {},
+                    onLongClick = {
+                        if (message.content.isNotBlank()) {
+                            val cm = context.getSystemService(ClipboardManager::class.java)
+                            cm?.setPrimaryClip(ClipData.newPlainText("Hellhound", message.content))
+                        }
+                    }
+                )
                 .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
             val display = message.content.ifEmpty { if (message.streaming) "…" else "" }

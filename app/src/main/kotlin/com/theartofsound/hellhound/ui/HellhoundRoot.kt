@@ -29,6 +29,7 @@ fun HellhoundRoot(
     onUpdateInput: (String) -> Unit,
     onSaveApiKey: (String) -> Unit,
     onSelectModel: (String) -> Unit,
+    onSaveSystemPrompt: (String) -> Unit,
     onClearHistory: () -> Unit,
     onRefreshPermissions: () -> Unit
 ) {
@@ -76,6 +77,7 @@ fun HellhoundRoot(
                     state = state,
                     onSaveApiKey = onSaveApiKey,
                     onSelectModel = onSelectModel,
+                    onSaveSystemPrompt = onSaveSystemPrompt,
                     contentPadding = padding
                 )
             }

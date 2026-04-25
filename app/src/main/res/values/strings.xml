@@ -24,4 +24,6 @@
     <string name="settings_model_label">Model</string>
     <string name="settings_save">Save</string>
     <string name="settings_clear">Clear</string>
+    <string name="settings_system_prompt_label">System prompt</string>
+    <string name="settings_system_prompt_reset">Reset to default</string>
 </resources>

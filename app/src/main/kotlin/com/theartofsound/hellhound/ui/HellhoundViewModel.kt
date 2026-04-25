@@ -25,6 +25,7 @@ data class HellhoundUiState(
     val error: String? = null,
     val apiKey: String = "",
     val model: String = "",
+    val systemPrompt: String = "",
     val availableModels: List<String> = emptyList(),
     val accessibilityEnabled: Boolean = false,
     val notificationAccessEnabled: Boolean = false
@@ -45,14 +46,26 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
             val key = hellhound.settings.apiKey.first()
             hellhound.updateCachedKey(key)
             val model = hellhound.settings.model.first()
+            val systemPrompt = hellhound.settings.systemPrompt.first()
             val stored = hellhound.settings.history.first()
             _uiState.value = _uiState.value.copy(
                 apiKey = key.orEmpty(),
                 model = model,
+                systemPrompt = systemPrompt,
                 messages = stored.map { UiMessage(it.role, it.content) }
             )
         }
         refreshPermissions()
+    }
+
+    fun saveSystemPrompt(prompt: String) {
+        viewModelScope.launch {
+            hellhound.settings.setSystemPrompt(prompt)
+            val effective = if (prompt.trim().isEmpty()) {
+                com.theartofsound.hellhound.data.SettingsStore.DEFAULT_SYSTEM_PROMPT
+            } else prompt.trim()
+            _uiState.value = _uiState.value.copy(systemPrompt = effective)
+        }
     }
 
     private fun persistHistory() {
@@ -159,6 +172,9 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun buildSystemPrompt(): String {
         val state = _uiState.value
+        val basePrompt = state.systemPrompt.ifBlank {
+            com.theartofsound.hellhound.data.SettingsStore.DEFAULT_SYSTEM_PROMPT
+        }
         val context = buildString {
             if (state.accessibilityEnabled) {
                 val screen = HellhoundAccessibilityService.lastScreenSnapshot()
@@ -176,8 +192,7 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
             }
         }.trim()
         return buildString {
-            appendLine("You are Hellhound, a personal Android assistant powered by Cerebras inference.")
-            appendLine("Be concise. Cite which context you used (screen / notifications) when relevant.")
+            appendLine(basePrompt)
             if (context.isNotBlank()) {
                 appendLine()
                 append(context)

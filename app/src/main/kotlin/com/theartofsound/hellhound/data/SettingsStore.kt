@@ -23,6 +23,9 @@ class SettingsStore(private val context: Context) {
     val model: Flow<String> = context.dataStore.data.map {
         it[KEY_MODEL] ?: CerebrasModelIds.LLAMA_3_3_70B
     }
+    val systemPrompt: Flow<String> = context.dataStore.data.map {
+        it[KEY_SYSTEM_PROMPT] ?: DEFAULT_SYSTEM_PROMPT
+    }
     val history: Flow<List<StoredMessage>> = context.dataStore.data.map { prefs ->
         val raw = prefs[KEY_HISTORY] ?: return@map emptyList()
         runCatching {
@@ -40,6 +43,17 @@ class SettingsStore(private val context: Context) {
         context.dataStore.edit { it[KEY_MODEL] = value }
     }
 
+    suspend fun setSystemPrompt(value: String) {
+        context.dataStore.edit { prefs ->
+            val trimmed = value.trim()
+            if (trimmed.isEmpty() || trimmed == DEFAULT_SYSTEM_PROMPT) {
+                prefs.remove(KEY_SYSTEM_PROMPT)
+            } else {
+                prefs[KEY_SYSTEM_PROMPT] = trimmed
+            }
+        }
+    }
+
     suspend fun setHistory(messages: List<StoredMessage>) {
         val payload = storeJson.encodeToString(
             ListSerializer(StoredMessage.serializer()), messages
@@ -49,9 +63,14 @@ class SettingsStore(private val context: Context) {
         }
     }
 
-    private companion object {
-        val KEY_API = stringPreferencesKey("cerebras_api_key")
-        val KEY_MODEL = stringPreferencesKey("cerebras_model")
-        val KEY_HISTORY = stringPreferencesKey("chat_history_v1")
+    companion object {
+        const val DEFAULT_SYSTEM_PROMPT =
+            "You are Hellhound, a personal Android assistant powered by Cerebras inference. " +
+            "Be concise. Cite which context you used (screen / notifications) when relevant."
+
+        private val KEY_API = stringPreferencesKey("cerebras_api_key")
+        private val KEY_MODEL = stringPreferencesKey("cerebras_model")
+        private val KEY_SYSTEM_PROMPT = stringPreferencesKey("system_prompt")
+        private val KEY_HISTORY = stringPreferencesKey("chat_history_v1")
     }
 }
