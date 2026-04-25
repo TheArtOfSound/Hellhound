@@ -33,6 +33,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.theartofsound.hellhound.R
+import com.theartofsound.hellhound.data.SystemPromptPresets
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -146,6 +147,22 @@ fun SettingsScreen(
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(top = 24.dp, bottom = 8.dp)
         )
+        FlowRow(
+            modifier = Modifier.padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            SystemPromptPresets.all.forEach { preset ->
+                FilterChip(
+                    selected = promptDraft.trim() == preset.prompt.trim(),
+                    onClick = {
+                        promptDraft = preset.prompt
+                        onSaveSystemPrompt(preset.prompt)
+                    },
+                    label = { Text(preset.label) }
+                )
+            }
+        }
         OutlinedTextField(
             value = promptDraft,
             onValueChange = { promptDraft = it },
