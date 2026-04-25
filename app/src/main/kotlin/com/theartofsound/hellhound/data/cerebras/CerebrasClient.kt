@@ -20,6 +20,21 @@ class CerebrasClient(
 ) {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false }
 
+    suspend fun listModels(): List<String> {
+        val key = requireKey()
+        val httpRequest = Request.Builder()
+            .url("$baseUrl/models")
+            .header("Authorization", "Bearer $key")
+            .get()
+            .build()
+        http.newCall(httpRequest).execute().use { response ->
+            val text = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw cerebrasException(response.code, text)
+            val parsed = json.decodeFromString(ModelListResponse.serializer(), text)
+            return parsed.data.map { it.id }.filter { it.isNotBlank() }.sorted()
+        }
+    }
+
     suspend fun complete(request: ChatCompletionRequest): ChatCompletionResponse {
         val key = requireKey()
         val body = json.encodeToString(ChatCompletionRequest.serializer(), request)
@@ -116,3 +131,9 @@ private data class ApiErrorEnvelope(
     val code: String? = null,
     @SerialName("error") val nested: ApiErrorEnvelope? = null
 )
+
+@Serializable
+private data class ModelListResponse(val data: List<ModelEntry> = emptyList())
+
+@Serializable
+private data class ModelEntry(val id: String = "")

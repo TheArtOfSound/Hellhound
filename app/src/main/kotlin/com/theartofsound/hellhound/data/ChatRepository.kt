@@ -18,4 +18,6 @@ class ChatRepository(private val client: CerebrasClient) {
         }
         return client.stream(ChatCompletionRequest(model = model, messages = messages))
     }
+
+    suspend fun listModels(): List<String> = client.listModels()
 }

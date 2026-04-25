@@ -43,6 +43,7 @@ class MainActivity : ComponentActivity() {
                         onSelectModel = viewModel::selectModel,
                         onSaveSystemPrompt = viewModel::saveSystemPrompt,
                         onSetAutoSendVoice = viewModel::setAutoSendVoice,
+                        onRefreshModels = viewModel::refreshModels,
                         onClearHistory = viewModel::clearHistory,
                         onRefreshPermissions = viewModel::refreshPermissions
                     )

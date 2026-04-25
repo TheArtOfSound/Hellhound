@@ -28,6 +28,8 @@ data class HellhoundUiState(
     val systemPrompt: String = "",
     val autoSendVoice: Boolean = false,
     val availableModels: List<String> = emptyList(),
+    val refreshingModels: Boolean = false,
+    val modelRefreshError: String? = null,
     val accessibilityEnabled: Boolean = false,
     val notificationAccessEnabled: Boolean = false
 )
@@ -99,13 +101,42 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
             hellhound.settings.setApiKey(trimmed)
             hellhound.updateCachedKey(trimmed)
             _uiState.value = _uiState.value.copy(apiKey = trimmed.orEmpty(), error = null)
+            if (!trimmed.isNullOrBlank()) refreshModels()
         }
     }
 
     fun selectModel(model: String) {
+        val trimmed = model.trim()
+        if (trimmed.isEmpty()) return
         viewModelScope.launch {
-            hellhound.settings.setModel(model)
-            _uiState.value = _uiState.value.copy(model = model)
+            hellhound.settings.setModel(trimmed)
+            _uiState.value = _uiState.value.copy(model = trimmed)
+        }
+    }
+
+    fun refreshModels() {
+        if (_uiState.value.refreshingModels) return
+        if (_uiState.value.apiKey.isBlank()) {
+            _uiState.value = _uiState.value.copy(
+                modelRefreshError = "Save your Cerebras API key first."
+            )
+            return
+        }
+        _uiState.value = _uiState.value.copy(refreshingModels = true, modelRefreshError = null)
+        viewModelScope.launch {
+            try {
+                val models = hellhound.repository.listModels()
+                _uiState.value = _uiState.value.copy(
+                    availableModels = models.ifEmpty { _uiState.value.availableModels },
+                    refreshingModels = false,
+                    modelRefreshError = if (models.isEmpty()) "No models returned." else null
+                )
+            } catch (t: Throwable) {
+                _uiState.value = _uiState.value.copy(
+                    refreshingModels = false,
+                    modelRefreshError = t.message ?: "Couldn't load models."
+                )
+            }
         }
     }
 
