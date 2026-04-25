@@ -8,6 +8,8 @@ import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
 import android.provider.AlarmClock
+import com.theartofsound.hellhound.data.ArchivedMessage
+import com.theartofsound.hellhound.data.MemoryStore
 import com.theartofsound.hellhound.data.cerebras.ToolFunction
 import com.theartofsound.hellhound.data.cerebras.ToolSpec
 import com.theartofsound.hellhound.services.HellhoundAccessibilityService
@@ -47,6 +49,7 @@ import java.util.concurrent.TimeUnit
  */
 class ToolDispatcher(
     private val context: Context,
+    private val memory: MemoryStore? = null,
     private val http: OkHttpClient = defaultHttp()
 ) {
 
@@ -66,6 +69,14 @@ class ToolDispatcher(
             "search_web" -> searchWeb(
                 args["query"]?.jsonPrimitive?.contentOrNull.orEmpty()
             )
+            "recall" -> recall(
+                args["query"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                args["limit"]?.jsonPrimitive?.intOrNull ?: 8
+            )
+            "recent_history" -> recentHistory(
+                args["limit"]?.jsonPrimitive?.intOrNull ?: 10
+            )
+            "memory_stats" -> memoryStats()
             // --- action tools ----------------------------------------------
             "open_app" -> openApp(
                 args["package"]?.jsonPrimitive?.contentOrNull.orEmpty()
@@ -151,6 +162,41 @@ class ToolDispatcher(
         val fmt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US)
         fmt.timeZone = TimeZone.getDefault()
         return fmt.format(Date())
+    }
+
+    private suspend fun recall(query: String, limit: Int): String {
+        val store = memory ?: return "recall: memory store unavailable."
+        if (query.isBlank()) return "recall: missing 'query'."
+        val hits = store.search(query, limit.coerceIn(1, 30))
+        if (hits.isEmpty()) return "(no archived turns matched \"$query\")"
+        return hits.joinToString("\n---\n") { formatArchived(it) }
+    }
+
+    private suspend fun recentHistory(limit: Int): String {
+        val store = memory ?: return "recent_history: memory store unavailable."
+        val recent = store.recent(limit.coerceIn(1, 50))
+        if (recent.isEmpty()) return "(memory is empty)"
+        return recent.joinToString("\n---\n") { formatArchived(it) }
+    }
+
+    private suspend fun memoryStats(): String {
+        val store = memory ?: return "memory_stats: memory store unavailable."
+        val s = store.stats()
+        if (s.totalTurns == 0) return "Memory is empty."
+        val firstIso = s.firstTimestamp?.let(::formatIso) ?: "?"
+        val lastIso = s.lastTimestamp?.let(::formatIso) ?: "?"
+        return "Memory: ${s.totalTurns} archived turns, from $firstIso to $lastIso."
+    }
+
+    private fun formatArchived(m: ArchivedMessage): String {
+        val ts = formatIso(m.timestamp)
+        return "[$ts ${m.role}] ${m.content.take(800)}"
+    }
+
+    private fun formatIso(epochMs: Long): String {
+        val fmt = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US)
+        fmt.timeZone = TimeZone.getDefault()
+        return fmt.format(Date(epochMs))
     }
 
     private suspend fun searchWeb(query: String): String {
@@ -310,6 +356,21 @@ class ToolDispatcher(
                 "search_web",
                 "Run a web search via DuckDuckGo Instant Answer. Best for factual / definitional queries (Wikipedia-style). Returns nothing for niche queries.",
                 """{"type":"object","properties":{"query":{"type":"string","description":"Search query"}},"required":["query"]}"""
+            ),
+            spec(
+                "recall",
+                "Search the user's long-term conversation archive (across all past sessions) for messages whose content contains the query string. Newest matches first. Use whenever the user references something said earlier — last week, yesterday, in our last chat, etc.",
+                """{"type":"object","properties":{"query":{"type":"string"},"limit":{"type":"integer","default":8}},"required":["query"]}"""
+            ),
+            spec(
+                "recent_history",
+                "Return the most recent N turns from the long-term archive across all past sessions. Useful when the user asks 'what were we just talking about'.",
+                """{"type":"object","properties":{"limit":{"type":"integer","default":10}},"required":[]}"""
+            ),
+            spec(
+                "memory_stats",
+                "Return how many turns are in the long-term archive and the time-range it covers.",
+                """{"type":"object","properties":{},"required":[]}"""
             ),
             spec(
                 "open_app",

@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.theartofsound.hellhound.HellhoundApp
+import com.theartofsound.hellhound.data.ArchivedMessage
 import com.theartofsound.hellhound.data.StoredMessage
 import com.theartofsound.hellhound.data.cerebras.ChatMessage
 import com.theartofsound.hellhound.services.HellhoundAccessibilityService
@@ -261,16 +262,30 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
         val updated = state.messages.toMutableList()
         val last = updated.lastOrNull()
         var spokenText: String? = null
+        var archiveTurn: List<ArchivedMessage> = emptyList()
         if (last != null && last.streaming) {
             if (error != null && last.content.isEmpty()) {
                 updated.removeAt(updated.lastIndex)
             } else {
                 updated[updated.lastIndex] = last.copy(streaming = false)
-                if (error == null) spokenText = last.content
+                if (error == null) {
+                    spokenText = last.content
+                    val now = System.currentTimeMillis()
+                    val penultimate = updated.getOrNull(updated.lastIndex - 1)
+                    archiveTurn = listOfNotNull(
+                        penultimate?.takeIf { it.role == "user" }?.let {
+                            ArchivedMessage("user", it.content, now)
+                        },
+                        ArchivedMessage("assistant", last.content, now)
+                    )
+                }
             }
         }
         _uiState.value = state.copy(messages = updated, sending = false, error = error)
         persistHistory()
+        if (archiveTurn.isNotEmpty()) {
+            viewModelScope.launch { hellhound.memory.append(archiveTurn) }
+        }
         if (state.autoSpeak && !spokenText.isNullOrBlank()) {
             hellhound.speaker.speak(spokenText)
         }
