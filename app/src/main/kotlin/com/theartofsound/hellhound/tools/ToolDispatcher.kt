@@ -128,8 +128,27 @@ class ToolDispatcher(
             return "Accessibility access is OFF. Ask the user to enable it under " +
                 "Access tab in Hellhound, then retry."
         }
-        return HellhoundAccessibilityService.lastScreenSnapshot()?.take(8000)
-            ?: "(no screen snapshot yet — open the foreground app and retry)"
+        val raw = HellhoundAccessibilityService.lastScreenSnapshot()
+            ?: return "(no screen snapshot yet — open the foreground app and retry)"
+        // The accessibility traversal often emits the same line twice (text
+        // + contentDescription). Drop consecutive duplicates so the prompt
+        // doesn't waste tokens, then trim to 8KB.
+        val deduped = raw.lineSequence()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .let { seq ->
+                val out = StringBuilder()
+                var previous: String? = null
+                for (line in seq) {
+                    if (line != previous) {
+                        if (out.isNotEmpty()) out.append('\n')
+                        out.append(line)
+                    }
+                    previous = line
+                }
+                out.toString()
+            }
+        return deduped.take(8000)
     }
 
     private fun getNotifications(limit: Int): String {
