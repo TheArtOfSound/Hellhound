@@ -36,6 +36,9 @@ class SettingsStore(private val context: Context) {
     val autoSpeak: Flow<Boolean> = context.dataStore.data.map {
         it[KEY_AUTO_SPEAK] ?: false
     }
+    val voiceFirstMode: Flow<Boolean> = context.dataStore.data.map {
+        it[KEY_VOICE_FIRST] ?: false
+    }
     val history: Flow<List<StoredMessage>> = context.dataStore.data.map { prefs ->
         val raw = prefs[KEY_HISTORY] ?: return@map emptyList()
         runCatching {
@@ -76,6 +79,10 @@ class SettingsStore(private val context: Context) {
         context.dataStore.edit { it[KEY_AUTO_SPEAK] = value }
     }
 
+    suspend fun setVoiceFirstMode(value: Boolean) {
+        context.dataStore.edit { it[KEY_VOICE_FIRST] = value }
+    }
+
     suspend fun setHistory(messages: List<StoredMessage>) {
         val payload = storeJson.encodeToString(
             ListSerializer(StoredMessage.serializer()), messages
@@ -100,5 +107,6 @@ class SettingsStore(private val context: Context) {
         private val KEY_AUTO_SEND_VOICE = booleanPreferencesKey("auto_send_voice")
         private val KEY_AGENT_MODE = booleanPreferencesKey("agent_mode")
         private val KEY_AUTO_SPEAK = booleanPreferencesKey("auto_speak")
+        private val KEY_VOICE_FIRST = booleanPreferencesKey("voice_first_mode")
     }
 }

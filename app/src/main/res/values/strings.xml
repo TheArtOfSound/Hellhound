@@ -35,4 +35,6 @@
     <string name="settings_agent_mode_body">When on, the model can call get_screen_text, get_recent_notifications, get_clipboard, get_device_info, and now() to ground its replies. Streaming is disabled in this mode.</string>
     <string name="settings_auto_speak">Auto-speak replies</string>
     <string name="settings_auto_speak_body">After each reply finishes, read it aloud via the system text-to-speech engine.</string>
+    <string name="settings_voice_first">Voice-first mode</string>
+    <string name="settings_voice_first_body">Replaces the chat input with a big mic button. Voice input auto-sends and replies are auto-spoken — fully hands-free.</string>
 </resources>

@@ -33,6 +33,7 @@ fun HellhoundRoot(
     onSetAutoSendVoice: (Boolean) -> Unit,
     onSetAgentMode: (Boolean) -> Unit,
     onSetAutoSpeak: (Boolean) -> Unit,
+    onSetVoiceFirstMode: (Boolean) -> Unit,
     onRefreshModels: () -> Unit,
     onClearHistory: () -> Unit,
     onRefreshPermissions: () -> Unit
@@ -85,6 +86,7 @@ fun HellhoundRoot(
                     onSetAutoSendVoice = onSetAutoSendVoice,
                     onSetAgentMode = onSetAgentMode,
                     onSetAutoSpeak = onSetAutoSpeak,
+                    onSetVoiceFirstMode = onSetVoiceFirstMode,
                     onRefreshModels = onRefreshModels,
                     contentPadding = padding
                 )

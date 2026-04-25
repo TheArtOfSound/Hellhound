@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -75,7 +76,8 @@ fun ChatScreen(
             if (spoken.isNotEmpty()) {
                 val merged = if (state.input.isBlank()) spoken else "${state.input} $spoken"
                 onUpdateInput(merged)
-                if (state.autoSendVoice && state.apiKey.isNotBlank()) onSendMessage()
+                val shouldAutoSend = (state.autoSendVoice || state.voiceFirstMode) && state.apiKey.isNotBlank()
+                if (shouldAutoSend) onSendMessage()
             }
         }
     }
@@ -146,25 +148,11 @@ fun ChatScreen(
             )
         }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            OutlinedTextField(
-                value = state.input,
-                onValueChange = onUpdateInput,
-                modifier = Modifier.weight(1f),
-                placeholder = { Text(stringResource(R.string.chat_hint)) },
-                enabled = !state.sending,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(onSend = {
-                    if (state.input.isNotBlank()) onSendMessage()
-                })
-            )
-            if (voiceAvailable && !state.sending) {
-                IconButton(onClick = {
+        if (state.voiceFirstMode) {
+            VoiceFirstControls(
+                state = state,
+                voiceAvailable = voiceAvailable,
+                onLaunchVoice = {
                     val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                         putExtra(
                             RecognizerIntent.EXTRA_LANGUAGE_MODEL,
@@ -174,21 +162,94 @@ fun ChatScreen(
                         putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to Hellhound")
                     }
                     runCatching { voiceLauncher.launch(intent) }
-                }) {
-                    Icon(Icons.Filled.Mic, contentDescription = "Voice input")
+                },
+                onCancelStream = onCancelStream
+            )
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = state.input,
+                    onValueChange = onUpdateInput,
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text(stringResource(R.string.chat_hint)) },
+                    enabled = !state.sending,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                    keyboardActions = KeyboardActions(onSend = {
+                        if (state.input.isNotBlank()) onSendMessage()
+                    })
+                )
+                if (voiceAvailable && !state.sending) {
+                    IconButton(onClick = {
+                        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                            putExtra(
+                                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                            )
+                            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+                            putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to Hellhound")
+                        }
+                        runCatching { voiceLauncher.launch(intent) }
+                    }) {
+                        Icon(Icons.Filled.Mic, contentDescription = "Voice input")
+                    }
+                }
+                if (state.sending) {
+                    IconButton(onClick = onCancelStream) {
+                        Icon(Icons.Filled.Stop, contentDescription = "Stop")
+                    }
+                } else {
+                    IconButton(
+                        onClick = onSendMessage,
+                        enabled = state.input.isNotBlank()
+                    ) {
+                        Icon(Icons.Filled.Send, contentDescription = stringResource(R.string.chat_send))
+                    }
                 }
             }
-            if (state.sending) {
-                IconButton(onClick = onCancelStream) {
-                    Icon(Icons.Filled.Stop, contentDescription = "Stop")
-                }
-            } else {
-                IconButton(
-                    onClick = onSendMessage,
-                    enabled = state.input.isNotBlank()
-                ) {
-                    Icon(Icons.Filled.Send, contentDescription = stringResource(R.string.chat_send))
-                }
+        }
+    }
+}
+
+@Composable
+private fun VoiceFirstControls(
+    state: HellhoundUiState,
+    voiceAvailable: Boolean,
+    onLaunchVoice: () -> Unit,
+    onCancelStream: () -> Unit
+) {
+    androidx.compose.foundation.layout.Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        if (state.sending) {
+            androidx.compose.material3.FilledIconButton(
+                onClick = onCancelStream,
+                modifier = Modifier.size(96.dp)
+            ) {
+                Icon(
+                    Icons.Filled.Stop,
+                    contentDescription = "Stop",
+                    modifier = Modifier.size(48.dp)
+                )
+            }
+        } else {
+            androidx.compose.material3.FilledIconButton(
+                onClick = onLaunchVoice,
+                enabled = voiceAvailable,
+                modifier = Modifier.size(96.dp)
+            ) {
+                Icon(
+                    Icons.Filled.Mic,
+                    contentDescription = "Speak",
+                    modifier = Modifier.size(48.dp)
+                )
             }
         }
     }

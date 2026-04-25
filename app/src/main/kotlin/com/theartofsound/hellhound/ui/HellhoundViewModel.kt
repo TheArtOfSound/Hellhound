@@ -30,6 +30,7 @@ data class HellhoundUiState(
     val autoSendVoice: Boolean = false,
     val agentMode: Boolean = true,
     val autoSpeak: Boolean = false,
+    val voiceFirstMode: Boolean = false,
     val availableModels: List<String> = emptyList(),
     val refreshingModels: Boolean = false,
     val modelRefreshError: String? = null,
@@ -56,6 +57,7 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
             val autoSend = hellhound.settings.autoSendVoice.first()
             val agent = hellhound.settings.agentMode.first()
             val autoSpeak = hellhound.settings.autoSpeak.first()
+            val voiceFirst = hellhound.settings.voiceFirstMode.first()
             val stored = hellhound.settings.history.first()
             _uiState.value = _uiState.value.copy(
                 apiKey = key.orEmpty(),
@@ -64,6 +66,7 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
                 autoSendVoice = autoSend,
                 agentMode = agent,
                 autoSpeak = autoSpeak,
+                voiceFirstMode = voiceFirst,
                 messages = stored.map { UiMessage(it.role, it.content) }
             )
             // Pull the real model list as soon as we have a key; avoids the
@@ -86,6 +89,11 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
     fun setAutoSpeak(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(autoSpeak = enabled)
         viewModelScope.launch { hellhound.settings.setAutoSpeak(enabled) }
+    }
+
+    fun setVoiceFirstMode(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(voiceFirstMode = enabled)
+        viewModelScope.launch { hellhound.settings.setVoiceFirstMode(enabled) }
     }
 
     fun saveSystemPrompt(prompt: String) {
@@ -289,7 +297,7 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
         if (archiveTurn.isNotEmpty()) {
             viewModelScope.launch { hellhound.memory.append(archiveTurn) }
         }
-        if (state.autoSpeak && !spokenText.isNullOrBlank()) {
+        if ((state.autoSpeak || state.voiceFirstMode) && !spokenText.isNullOrBlank()) {
             hellhound.speaker.speak(spokenText)
         }
     }
