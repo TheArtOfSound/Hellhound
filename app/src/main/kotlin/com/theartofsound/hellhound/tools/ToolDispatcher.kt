@@ -77,6 +77,9 @@ class ToolDispatcher(
                 args["limit"]?.jsonPrimitive?.intOrNull ?: 10
             )
             "memory_stats" -> memoryStats()
+            "list_installed_apps" -> listInstalledApps(
+                args["filter"]?.jsonPrimitive?.contentOrNull.orEmpty()
+            )
             // --- action tools ----------------------------------------------
             "open_app" -> openApp(
                 args["package"]?.jsonPrimitive?.contentOrNull.orEmpty()
@@ -232,6 +235,30 @@ class ToolDispatcher(
 
     // --- action tools ---------------------------------------------------------
 
+    private fun listInstalledApps(filter: String): String {
+        val pm = context.packageManager
+        val launcherIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val resolves = pm.queryIntentActivities(launcherIntent, 0)
+        if (resolves.isEmpty()) return "(no launcher-visible apps; try a more specific query)"
+        val needle = filter.trim().lowercase()
+        val rows = resolves.asSequence()
+            .map { ri ->
+                val pkg = ri.activityInfo.packageName
+                val label = ri.loadLabel(pm)?.toString().orEmpty().ifBlank { pkg }
+                label to pkg
+            }
+            .filter { (label, pkg) ->
+                needle.isEmpty() ||
+                    label.lowercase().contains(needle) ||
+                    pkg.lowercase().contains(needle)
+            }
+            .distinctBy { it.second }
+            .sortedBy { it.first.lowercase() }
+            .toList()
+        if (rows.isEmpty()) return "(no apps matched \"$filter\")"
+        return rows.joinToString("\n") { "${it.first} — ${it.second}" }
+    }
+
     private fun openApp(packageName: String): String {
         val pkg = packageName.trim()
         if (pkg.isBlank()) return "open_app: missing 'package'."
@@ -373,8 +400,13 @@ class ToolDispatcher(
                 """{"type":"object","properties":{},"required":[]}"""
             ),
             spec(
+                "list_installed_apps",
+                "Return the user's launcher-visible apps as 'Label — package' pairs. Optional substring filter. Use this BEFORE open_app whenever you only know the friendly name.",
+                """{"type":"object","properties":{"filter":{"type":"string","description":"Optional case-insensitive substring; matches label or package"}},"required":[]}"""
+            ),
+            spec(
                 "open_app",
-                "Launch another installed app by its full package name (e.g. com.spotify.music). Returns an error if the app is not installed.",
+                "Launch another installed app by its full package name (e.g. com.spotify.music). If the user gives a friendly name, call list_installed_apps first to look up the package. Returns an error if the app is not installed.",
                 """{"type":"object","properties":{"package":{"type":"string","description":"Full Android package name"}},"required":["package"]}"""
             ),
             spec(
