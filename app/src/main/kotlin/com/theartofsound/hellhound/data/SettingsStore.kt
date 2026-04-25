@@ -22,7 +22,7 @@ class SettingsStore(private val context: Context) {
 
     val apiKey: Flow<String?> = context.dataStore.data.map { it[KEY_API] }
     val model: Flow<String> = context.dataStore.data.map {
-        it[KEY_MODEL] ?: CerebrasModelIds.LLAMA_3_3_70B
+        it[KEY_MODEL] ?: CerebrasModelIds.DEFAULT
     }
     val systemPrompt: Flow<String> = context.dataStore.data.map {
         it[KEY_SYSTEM_PROMPT] ?: DEFAULT_SYSTEM_PROMPT

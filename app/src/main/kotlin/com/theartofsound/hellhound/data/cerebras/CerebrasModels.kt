@@ -49,7 +49,8 @@ data class Usage(
 
 object CerebrasModelIds {
     const val LLAMA_3_1_8B = "llama3.1-8b"
-    const val LLAMA_3_3_70B = "llama-3.3-70b"
-    const val QWEN_3_32B = "qwen-3-32b"
-    val all = listOf(LLAMA_3_1_8B, LLAMA_3_3_70B, QWEN_3_32B)
+    const val DEFAULT = LLAMA_3_1_8B
+    // Single safe default; the real list is fetched from /v1/models on
+    // launch and replaces this. Cerebras lineups vary per account.
+    val all = listOf(LLAMA_3_1_8B)
 }

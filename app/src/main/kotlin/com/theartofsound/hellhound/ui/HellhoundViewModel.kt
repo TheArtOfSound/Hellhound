@@ -59,6 +59,9 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
                 autoSendVoice = autoSend,
                 messages = stored.map { UiMessage(it.role, it.content) }
             )
+            // Pull the real model list as soon as we have a key; avoids the
+            // user staring at stale chips.
+            if (!key.isNullOrBlank()) refreshModels()
         }
         refreshPermissions()
     }
@@ -126,8 +129,17 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             try {
                 val models = hellhound.repository.listModels()
+                val effectiveList = models.ifEmpty { _uiState.value.availableModels }
+                val currentModel = _uiState.value.model
+                val newModel = if (currentModel.isBlank() || currentModel !in effectiveList) {
+                    effectiveList.firstOrNull() ?: currentModel
+                } else currentModel
+                if (newModel != currentModel && newModel.isNotBlank()) {
+                    hellhound.settings.setModel(newModel)
+                }
                 _uiState.value = _uiState.value.copy(
-                    availableModels = models.ifEmpty { _uiState.value.availableModels },
+                    availableModels = effectiveList,
+                    model = newModel,
                     refreshingModels = false,
                     modelRefreshError = if (models.isEmpty()) "No models returned." else null
                 )
