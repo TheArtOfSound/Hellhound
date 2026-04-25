@@ -99,11 +99,16 @@ fun ChatScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Hellhound",
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.weight(1f)
-            )
+            androidx.compose.foundation.layout.Column(modifier = Modifier.weight(1f)) {
+                Text(text = "Hellhound", style = MaterialTheme.typography.titleLarge)
+                if (state.model.isNotBlank()) {
+                    Text(
+                        text = state.model,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                    )
+                }
+            }
             if (speaker != null) {
                 IconButton(onClick = { speaker.stop() }) {
                     Icon(Icons.Filled.VolumeOff, contentDescription = "Stop speaking")
