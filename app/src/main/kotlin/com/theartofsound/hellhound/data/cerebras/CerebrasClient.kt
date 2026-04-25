@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -133,6 +134,121 @@ class CerebrasClient(
             else -> message
         }
         return CerebrasException(status, friendly)
+    }
+
+    sealed class StreamEvent {
+        data class Content(val text: String) : StreamEvent()
+        data class Trace(val name: String) : StreamEvent()
+    }
+
+    /**
+     * Streaming agent loop: like [runAgent] but emits content deltas as
+     * they arrive (no waiting for the full reply) and traces as tools
+     * fire. Each iteration uses stream=true; tool_call deltas are
+     * assembled by index and arguments concatenated, then dispatched,
+     * with the loop continuing until the model emits a finishing
+     * response with no more tool_calls.
+     */
+    suspend fun streamAgent(
+        model: String,
+        history: List<ChatMessage>,
+        tools: List<ToolSpec>,
+        executeTool: suspend (name: String, argsJson: String) -> String,
+        maxIterations: Int = 6,
+        emitter: suspend (StreamEvent) -> Unit
+    ) {
+        val messages = history.toMutableList()
+        repeat(maxIterations) {
+            val pending = sortedMapOf<Int, PendingCall>()
+            var sawAnyContent = false
+
+            streamWithTools(
+                ChatCompletionRequest(
+                    model = model,
+                    messages = messages,
+                    tools = tools,
+                    toolChoice = "auto",
+                    stream = true
+                )
+            ) { delta ->
+                delta.content?.takeIf { it.isNotEmpty() }?.let {
+                    sawAnyContent = true
+                    emitter(StreamEvent.Content(it))
+                }
+                delta.toolCalls?.forEach { tc ->
+                    val idx = tc.index ?: 0
+                    val acc = pending.getOrPut(idx) { PendingCall() }
+                    tc.id?.let { acc.id = it }
+                    tc.function?.name?.let { acc.name = it }
+                    tc.function?.arguments?.let { acc.arguments.append(it) }
+                }
+            }
+
+            if (pending.isEmpty()) return  // model finished with text
+
+            val resolved = pending.values.map {
+                ToolCall(
+                    id = it.id ?: "",
+                    function = ToolCallFunction(name = it.name, arguments = it.arguments.toString())
+                )
+            }
+            messages.add(ChatMessage(role = "assistant", toolCalls = resolved))
+
+            for (call in resolved) {
+                val name = call.function?.name ?: continue
+                emitter(StreamEvent.Trace("→ $name"))
+                val result = runCatching {
+                    executeTool(name, call.function.arguments)
+                }.getOrElse { "Tool failed: ${it.message ?: it::class.java.simpleName}" }
+                messages.add(
+                    ChatMessage(
+                        role = "tool",
+                        content = result,
+                        toolCallId = call.id
+                    )
+                )
+            }
+        }
+    }
+
+    private class PendingCall(
+        var id: String? = null,
+        var name: String? = null,
+        val arguments: StringBuilder = StringBuilder()
+    )
+
+    private suspend fun streamWithTools(
+        request: ChatCompletionRequest,
+        onDelta: suspend (Delta) -> Unit
+    ) = withContext(Dispatchers.IO) {
+        val key = requireKey()
+        val body = json.encodeToString(ChatCompletionRequest.serializer(), request)
+            .toRequestBody(JSON)
+        val httpRequest = Request.Builder()
+            .url("$baseUrl/chat/completions")
+            .header("Authorization", "Bearer $key")
+            .header("Content-Type", "application/json")
+            .header("Accept", "text/event-stream")
+            .post(body)
+            .build()
+        http.newCall(httpRequest).execute().use { response ->
+            if (!response.isSuccessful) {
+                val text = response.body?.string().orEmpty()
+                throw cerebrasException(response.code, text)
+            }
+            val source = response.body?.source() ?: return@use
+            while (!source.exhausted()) {
+                val line = source.readUtf8Line() ?: break
+                if (!line.startsWith("data:")) continue
+                val payload = line.removePrefix("data:").trim()
+                if (payload.isEmpty() || payload == "[DONE]") continue
+                val chunk = runCatching {
+                    json.decodeFromString(ChatCompletionResponse.serializer(), payload)
+                }.getOrNull() ?: continue
+                val delta = chunk.choices.firstOrNull()?.delta ?: continue
+                onDelta(delta)
+            }
+        }
     }
 
     fun stream(request: ChatCompletionRequest): Flow<String> = flow {

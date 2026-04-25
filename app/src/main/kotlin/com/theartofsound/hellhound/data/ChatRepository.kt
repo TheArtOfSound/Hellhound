@@ -35,5 +35,20 @@ class ChatRepository(private val client: CerebrasClient) {
         return client.runAgent(model, messages, tools, executeTool, onTrace = onTrace)
     }
 
+    suspend fun streamAgent(
+        model: String,
+        history: List<ChatMessage>,
+        tools: List<ToolSpec>,
+        executeTool: suspend (name: String, argsJson: String) -> String,
+        systemPrompt: String? = null,
+        emitter: suspend (CerebrasClient.StreamEvent) -> Unit
+    ) {
+        val messages = buildList {
+            if (!systemPrompt.isNullOrBlank()) add(ChatMessage("system", systemPrompt))
+            addAll(history)
+        }
+        client.streamAgent(model, messages, tools, executeTool, emitter = emitter)
+    }
+
     suspend fun listModels(): List<String> = client.listModels()
 }

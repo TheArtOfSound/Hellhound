@@ -225,25 +225,30 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
             val systemPrompt = buildSystemPrompt(historyTruncated = truncated)
             try {
                 if (_uiState.value.agentMode) {
-                    val finalText = hellhound.repository.runAgent(
+                    hellhound.repository.streamAgent(
                         model = _uiState.value.model,
                         history = history,
                         tools = com.theartofsound.hellhound.tools.ToolDispatcher.SPECS,
                         executeTool = { name, argsJson -> hellhound.tools.dispatch(name, argsJson) },
-                        systemPrompt = systemPrompt,
-                        onTrace = { trace ->
-                            val state = _uiState.value
-                            val updated = state.messages.toMutableList()
-                            val last = updated.last()
-                            updated[updated.lastIndex] = last.copy(traces = last.traces + trace)
-                            _uiState.value = state.copy(messages = updated)
+                        systemPrompt = systemPrompt
+                    ) { event ->
+                        val state = _uiState.value
+                        val updated = state.messages.toMutableList()
+                        val last = updated.last()
+                        when (event) {
+                            is com.theartofsound.hellhound.data.cerebras.CerebrasClient.StreamEvent.Content -> {
+                                updated[updated.lastIndex] = last.copy(
+                                    content = last.content + event.text
+                                )
+                            }
+                            is com.theartofsound.hellhound.data.cerebras.CerebrasClient.StreamEvent.Trace -> {
+                                updated[updated.lastIndex] = last.copy(
+                                    traces = last.traces + event.name
+                                )
+                            }
                         }
-                    )
-                    val state = _uiState.value
-                    val updated = state.messages.toMutableList()
-                    val last = updated.last()
-                    updated[updated.lastIndex] = last.copy(content = finalText)
-                    _uiState.value = state.copy(messages = updated)
+                        _uiState.value = state.copy(messages = updated)
+                    }
                     finalizeStream(error = null)
                 } else {
                     hellhound.repository.streamReply(

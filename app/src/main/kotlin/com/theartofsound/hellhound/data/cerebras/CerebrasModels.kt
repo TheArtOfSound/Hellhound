@@ -37,17 +37,23 @@ data class ToolFunction(
     val parameters: JsonElement
 )
 
+// Lenient by design: streaming deltas omit id on chunks after the first
+// and split arguments across multiple chunks, so the parser tolerates
+// partial values and the streaming-agent assembler stitches them
+// together before either dispatching them or echoing the message back
+// to the API.
 @Serializable
 data class ToolCall(
-    val id: String,
+    val id: String? = null,
     val type: String = "function",
-    val function: ToolCallFunction
+    val function: ToolCallFunction? = null,
+    val index: Int? = null
 )
 
 @Serializable
 data class ToolCallFunction(
-    val name: String,
-    val arguments: String
+    val name: String? = null,
+    val arguments: String = ""
 )
 
 @Serializable
