@@ -1,0 +1,82 @@
+package com.theartofsound.hellhound.ui
+
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.unit.dp
+import com.theartofsound.hellhound.R
+
+@Composable
+fun SettingsScreen(
+    state: HellhoundUiState,
+    onSaveApiKey: (String) -> Unit,
+    onSelectModel: (String) -> Unit,
+    contentPadding: PaddingValues
+) {
+    var draft by rememberSaveable(state.apiKey) { mutableStateOf(state.apiKey) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(contentPadding)
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
+        Text(stringResource(R.string.chat_settings), style = MaterialTheme.typography.titleLarge)
+
+        OutlinedTextField(
+            value = draft,
+            onValueChange = { draft = it },
+            label = { Text(stringResource(R.string.settings_api_key_label)) },
+            visualTransformation = PasswordVisualTransformation(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp)
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Button(onClick = { onSaveApiKey(draft) }) {
+                Text(stringResource(R.string.settings_save))
+            }
+            TextButton(onClick = { draft = ""; onSaveApiKey("") }) {
+                Text(stringResource(R.string.settings_clear))
+            }
+        }
+
+        Text(
+            stringResource(R.string.settings_model_label),
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(top = 24.dp, bottom = 8.dp)
+        )
+        Row {
+            state.availableModels.forEach { model ->
+                FilterChip(
+                    selected = state.model == model,
+                    onClick = { onSelectModel(model) },
+                    label = { Text(model) },
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+            }
+        }
+    }
+}
