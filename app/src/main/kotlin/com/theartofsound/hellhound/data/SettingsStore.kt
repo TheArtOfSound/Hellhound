@@ -39,6 +39,12 @@ class SettingsStore(private val context: Context) {
     val voiceFirstMode: Flow<Boolean> = context.dataStore.data.map {
         it[KEY_VOICE_FIRST] ?: false
     }
+    val dailyBriefingEnabled: Flow<Boolean> = context.dataStore.data.map {
+        it[KEY_DAILY_BRIEFING] ?: false
+    }
+    val lastBriefingDate: Flow<String> = context.dataStore.data.map {
+        it[KEY_LAST_BRIEFING] ?: ""
+    }
     val history: Flow<List<StoredMessage>> = context.dataStore.data.map { prefs ->
         val raw = prefs[KEY_HISTORY] ?: return@map emptyList()
         runCatching {
@@ -83,6 +89,14 @@ class SettingsStore(private val context: Context) {
         context.dataStore.edit { it[KEY_VOICE_FIRST] = value }
     }
 
+    suspend fun setDailyBriefingEnabled(value: Boolean) {
+        context.dataStore.edit { it[KEY_DAILY_BRIEFING] = value }
+    }
+
+    suspend fun setLastBriefingDate(value: String) {
+        context.dataStore.edit { it[KEY_LAST_BRIEFING] = value }
+    }
+
     suspend fun setHistory(messages: List<StoredMessage>) {
         val payload = storeJson.encodeToString(
             ListSerializer(StoredMessage.serializer()), messages
@@ -108,5 +122,7 @@ class SettingsStore(private val context: Context) {
         private val KEY_AGENT_MODE = booleanPreferencesKey("agent_mode")
         private val KEY_AUTO_SPEAK = booleanPreferencesKey("auto_speak")
         private val KEY_VOICE_FIRST = booleanPreferencesKey("voice_first_mode")
+        private val KEY_DAILY_BRIEFING = booleanPreferencesKey("daily_briefing_enabled")
+        private val KEY_LAST_BRIEFING = stringPreferencesKey("last_briefing_date")
     }
 }

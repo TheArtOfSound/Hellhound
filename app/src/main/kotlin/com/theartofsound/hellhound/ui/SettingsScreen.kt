@@ -46,6 +46,7 @@ fun SettingsScreen(
     onSetAgentMode: (Boolean) -> Unit,
     onSetAutoSpeak: (Boolean) -> Unit,
     onSetVoiceFirstMode: (Boolean) -> Unit,
+    onSetDailyBriefing: (Boolean) -> Unit,
     onRefreshModels: () -> Unit,
     contentPadding: PaddingValues
 ) {
@@ -257,6 +258,27 @@ fun SettingsScreen(
             Switch(
                 checked = state.voiceFirstMode,
                 onCheckedChange = onSetVoiceFirstMode
+            )
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 24.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.settings_daily_briefing))
+                Text(
+                    stringResource(R.string.settings_daily_briefing_body),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+            Switch(
+                checked = state.dailyBriefingEnabled,
+                onCheckedChange = onSetDailyBriefing
             )
         }
     }

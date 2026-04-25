@@ -36,6 +36,7 @@ data class HellhoundUiState(
     val agentMode: Boolean = true,
     val autoSpeak: Boolean = false,
     val voiceFirstMode: Boolean = false,
+    val dailyBriefingEnabled: Boolean = false,
     val availableModels: List<String> = emptyList(),
     val refreshingModels: Boolean = false,
     val modelRefreshError: String? = null,
@@ -63,6 +64,8 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
             val agent = hellhound.settings.agentMode.first()
             val autoSpeak = hellhound.settings.autoSpeak.first()
             val voiceFirst = hellhound.settings.voiceFirstMode.first()
+            val briefing = hellhound.settings.dailyBriefingEnabled.first()
+            val lastBriefingDate = hellhound.settings.lastBriefingDate.first()
             val stored = hellhound.settings.history.first()
             _uiState.value = _uiState.value.copy(
                 apiKey = key.orEmpty(),
@@ -72,13 +75,32 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
                 agentMode = agent,
                 autoSpeak = autoSpeak,
                 voiceFirstMode = voiceFirst,
+                dailyBriefingEnabled = briefing,
                 messages = stored.map { UiMessage(it.role, it.content) }
             )
             // Pull the real model list as soon as we have a key; avoids the
             // user staring at stale chips.
             if (!key.isNullOrBlank()) refreshModels()
+
+            // Daily briefing: if opt-in is on, key is set, agent mode is on,
+            // it's a new calendar day, and the chat is empty (don't interrupt
+            // an in-flight conversation), kick off a briefing turn.
+            val today = todayLocalDate()
+            if (briefing && !key.isNullOrBlank() && agent &&
+                lastBriefingDate != today && stored.isEmpty()
+            ) {
+                hellhound.settings.setLastBriefingDate(today)
+                triggerBriefing()
+            }
         }
         refreshPermissions()
+    }
+
+    private fun triggerBriefing() {
+        val seed = "Daily briefing — tell me the time, the battery level, and " +
+            "summarize my recent notifications. Then ask if there's anything I want to do today."
+        _uiState.value = _uiState.value.copy(input = seed)
+        send()
     }
 
     fun setAutoSendVoice(enabled: Boolean) {
@@ -99,6 +121,17 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
     fun setVoiceFirstMode(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(voiceFirstMode = enabled)
         viewModelScope.launch { hellhound.settings.setVoiceFirstMode(enabled) }
+    }
+
+    fun setDailyBriefingEnabled(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(dailyBriefingEnabled = enabled)
+        viewModelScope.launch { hellhound.settings.setDailyBriefingEnabled(enabled) }
+    }
+
+    private fun todayLocalDate(): String {
+        val fmt = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+        fmt.timeZone = java.util.TimeZone.getDefault()
+        return fmt.format(java.util.Date())
     }
 
     fun saveSystemPrompt(prompt: String) {

@@ -46,6 +46,7 @@ class MainActivity : ComponentActivity() {
                         onSetAgentMode = viewModel::setAgentMode,
                         onSetAutoSpeak = viewModel::setAutoSpeak,
                         onSetVoiceFirstMode = viewModel::setVoiceFirstMode,
+                        onSetDailyBriefing = viewModel::setDailyBriefingEnabled,
                         onRefreshModels = viewModel::refreshModels,
                         onClearHistory = viewModel::clearHistory,
                         onRefreshPermissions = viewModel::refreshPermissions

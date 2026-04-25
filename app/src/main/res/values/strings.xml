@@ -37,4 +37,6 @@
     <string name="settings_auto_speak_body">After each reply finishes, read it aloud via the system text-to-speech engine.</string>
     <string name="settings_voice_first">Voice-first mode</string>
     <string name="settings_voice_first_body">Replaces the chat input with a big mic button. Voice input auto-sends and replies are auto-spoken — fully hands-free.</string>
+    <string name="settings_daily_briefing">Daily briefing on first open</string>
+    <string name="settings_daily_briefing_body">The first time you open Hellhound each day, the agent automatically runs a briefing turn — time, battery, notifications, then asks what you want to do today. Costs one Cerebras call per day.</string>
 </resources>
