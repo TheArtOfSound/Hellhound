@@ -4,6 +4,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -31,10 +33,28 @@ class CerebrasClient(
         http.newCall(httpRequest).execute().use { response ->
             val text = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
-                throw CerebrasException(response.code, text)
+                throw cerebrasException(response.code, text)
             }
             return json.decodeFromString(ChatCompletionResponse.serializer(), text)
         }
+    }
+
+    private fun cerebrasException(status: Int, body: String): CerebrasException {
+        val parsed = runCatching {
+            json.decodeFromString(ApiErrorEnvelope.serializer(), body)
+        }.getOrNull()
+        // Some endpoints wrap in {"error": {...}}; flatten if so.
+        val effective = parsed?.nested ?: parsed
+        val message = effective?.message?.takeIf { it.isNotBlank() } ?: body
+        val code = effective?.code
+        val friendly = when (code) {
+            "model_not_found" ->
+                "$message Open Settings and pick another model (llama-3.3-70b is a safe default)."
+            "invalid_api_key", "authentication_error" ->
+                "$message Check your Cerebras API key in Settings."
+            else -> message
+        }
+        return CerebrasException(status, friendly)
     }
 
     fun stream(request: ChatCompletionRequest): Flow<String> = flow {
@@ -52,7 +72,7 @@ class CerebrasClient(
         http.newCall(httpRequest).execute().use { response ->
             if (!response.isSuccessful) {
                 val text = response.body?.string().orEmpty()
-                throw CerebrasException(response.code, text)
+                throw cerebrasException(response.code, text)
             }
             val source = response.body?.source() ?: return@flow
             while (!source.exhausted()) {
@@ -84,6 +104,15 @@ class CerebrasClient(
     }
 }
 
-class CerebrasException(val status: Int, message: String) : RuntimeException(
-    "Cerebras API error $status: $message"
+class CerebrasException(val status: Int, message: String) : RuntimeException(message)
+
+// The API sometimes returns flat {message, code} and sometimes wraps in
+// {error: {...}}. We tolerate either by making the nested field optional.
+@Serializable
+private data class ApiErrorEnvelope(
+    val message: String? = null,
+    val type: String? = null,
+    val param: String? = null,
+    val code: String? = null,
+    @SerialName("error") val nested: ApiErrorEnvelope? = null
 )
