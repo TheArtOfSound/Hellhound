@@ -101,19 +101,14 @@ fun ChatScreen(
         }
 
         if (state.messages.isEmpty()) {
-            val emptyCopy = if (state.apiKey.isBlank()) {
-                stringResource(R.string.chat_empty_no_key)
-            } else {
-                stringResource(R.string.chat_empty)
-            }
-            Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text(
-                    text = emptyCopy,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(32.dp),
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                )
-            }
+            EmptyState(
+                hasApiKey = state.apiKey.isNotBlank(),
+                onPromptTap = { prompt ->
+                    onUpdateInput(prompt)
+                    onSendMessage()
+                },
+                modifier = Modifier.weight(1f).fillMaxWidth()
+            )
         } else {
             val listState = rememberLazyListState()
             // Only auto-scroll to the latest message when the user is already
@@ -193,6 +188,53 @@ fun ChatScreen(
                     enabled = state.input.isNotBlank()
                 ) {
                     Icon(Icons.Filled.Send, contentDescription = stringResource(R.string.chat_send))
+                }
+            }
+        }
+    }
+}
+
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun EmptyState(
+    hasApiKey: Boolean,
+    onPromptTap: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val examples = listOf(
+        "What time is it?",
+        "What's on my screen?",
+        "Summarize my notifications",
+        "Set an alarm for 7:00 am",
+        "Set a 10 minute timer",
+        "What's on my clipboard?",
+        "Open com.spotify.music",
+        "Search the web for Cerebras inference",
+        "What did we talk about earlier?",
+        "Battery level?"
+    )
+    androidx.compose.foundation.layout.Column(
+        modifier = modifier.padding(24.dp),
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = if (hasApiKey) stringResource(R.string.chat_empty)
+                else stringResource(R.string.chat_empty_no_key),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(bottom = 16.dp),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+        )
+        if (hasApiKey) {
+            androidx.compose.foundation.layout.FlowRow(
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+            ) {
+                examples.forEach { prompt ->
+                    androidx.compose.material3.AssistChip(
+                        onClick = { onPromptTap(prompt) },
+                        label = { Text(prompt) }
+                    )
                 }
             }
         }
