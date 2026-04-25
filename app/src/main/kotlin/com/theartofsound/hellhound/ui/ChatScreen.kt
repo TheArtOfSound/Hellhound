@@ -14,10 +14,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import android.app.Activity
+import android.content.Intent
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Icon
@@ -27,12 +34,15 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import java.util.Locale
 import com.theartofsound.hellhound.R
 
 @Composable
@@ -44,6 +54,23 @@ fun ChatScreen(
     onClearHistory: () -> Unit,
     contentPadding: PaddingValues
 ) {
+    val context = LocalContext.current
+    val voiceAvailable = remember { SpeechRecognizer.isRecognitionAvailable(context) }
+    val voiceLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val spoken = result.data
+                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull()
+                ?.trim()
+                .orEmpty()
+            if (spoken.isNotEmpty()) {
+                val merged = if (state.input.isBlank()) spoken else "${state.input} $spoken"
+                onUpdateInput(merged)
+            }
+        }
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -122,6 +149,21 @@ fun ChatScreen(
                     if (state.input.isNotBlank()) onSendMessage()
                 })
             )
+            if (voiceAvailable && !state.sending) {
+                IconButton(onClick = {
+                    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                        putExtra(
+                            RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                            RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                        )
+                        putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+                        putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to Hellhound")
+                    }
+                    runCatching { voiceLauncher.launch(intent) }
+                }) {
+                    Icon(Icons.Filled.Mic, contentDescription = "Voice input")
+                }
+            }
             if (state.sending) {
                 IconButton(onClick = onCancelStream) {
                     Icon(Icons.Filled.Stop, contentDescription = "Stop")
