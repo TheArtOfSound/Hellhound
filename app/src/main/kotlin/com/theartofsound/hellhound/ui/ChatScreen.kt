@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -206,7 +207,11 @@ private fun MessageBubble(message: UiMessage) {
     val fg = if (isUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
     val alignment = if (isUser) Alignment.CenterEnd else Alignment.CenterStart
     val context = LocalContext.current
-    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = alignment) {
+    val speaker = remember(context) {
+        (context.applicationContext as? com.theartofsound.hellhound.HellhoundApp)?.speaker
+    }
+    Row(modifier = Modifier.fillMaxWidth()) {
+        if (isUser) Box(modifier = Modifier.weight(1f))
         Box(
             modifier = Modifier
                 .widthIn(max = 320.dp)
@@ -229,5 +234,15 @@ private fun MessageBubble(message: UiMessage) {
                 Text(text = rememberMarkdown(display), color = fg)
             }
         }
+        if (!isUser && message.content.isNotBlank() && !message.streaming && speaker != null) {
+            IconButton(onClick = { speaker.speak(message.content) }) {
+                Icon(
+                    Icons.Filled.VolumeUp,
+                    contentDescription = "Speak aloud",
+                    modifier = Modifier
+                )
+            }
+        }
+        if (!isUser) Box(modifier = Modifier.weight(1f))
     }
 }

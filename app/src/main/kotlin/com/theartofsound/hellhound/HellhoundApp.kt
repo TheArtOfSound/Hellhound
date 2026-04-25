@@ -1,6 +1,7 @@
 package com.theartofsound.hellhound
 
 import android.app.Application
+import com.theartofsound.hellhound.audio.Speaker
 import com.theartofsound.hellhound.data.ChatRepository
 import com.theartofsound.hellhound.data.SettingsStore
 import com.theartofsound.hellhound.data.cerebras.CerebrasClient
@@ -12,6 +13,8 @@ class HellhoundApp : Application() {
         private set
     lateinit var repository: ChatRepository
         private set
+    lateinit var speaker: Speaker
+        private set
 
     private val cachedKey = AtomicReference<String?>(null)
 
@@ -20,6 +23,12 @@ class HellhoundApp : Application() {
         settings = SettingsStore(this)
         val client = CerebrasClient(apiKeyProvider = { cachedKey.get() })
         repository = ChatRepository(client)
+        speaker = Speaker(this)
+    }
+
+    override fun onTerminate() {
+        runCatching { speaker.shutdown() }
+        super.onTerminate()
     }
 
     fun updateCachedKey(value: String?) {
