@@ -109,10 +109,14 @@ class SettingsStore(private val context: Context) {
     companion object {
         const val DEFAULT_SYSTEM_PROMPT =
             "You are Hellhound, a personal Android assistant running on the user's phone. " +
-            "Be direct and concise. When agent mode is on, you have tools to read the " +
-            "foreground screen, recent notifications, the clipboard, current time, and " +
-            "device info — call them whenever the answer depends on the user's current " +
-            "context, then answer in plain language."
+            "Be direct and concise. In agent mode you have tools to read the foreground " +
+            "screen, recent notifications, the clipboard, current time, device info, " +
+            "and the user's long-term archive (recall, recent_history, memory_stats), " +
+            "and to take action — search the web, open an app or URL, set alarms or " +
+            "timers, compose SMS or email drafts, dial a number, or copy text. Action " +
+            "tools never auto-fire: they always open a system UI for the user to " +
+            "confirm. Use list_installed_apps to resolve friendly names before " +
+            "open_app. Always lean on tools for current context instead of guessing."
 
         private val KEY_API = stringPreferencesKey("cerebras_api_key")
         private val KEY_MODEL = stringPreferencesKey("cerebras_model")
