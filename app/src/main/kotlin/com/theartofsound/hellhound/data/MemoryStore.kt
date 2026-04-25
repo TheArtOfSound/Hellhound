@@ -61,11 +61,19 @@ class MemoryStore(context: Context) {
     }
 
     suspend fun search(query: String, limit: Int = 20): List<ArchivedMessage> {
-        val q = query.trim().lowercase()
-        if (q.isEmpty()) return emptyList()
-        // Newest-first, simple substring match. Good enough for v1 — vector
-        // recall is a future cycle once we have an embedding endpoint.
-        return readAll().asReversed().filter { it.content.lowercase().contains(q) }.take(limit)
+        val tokens = query.trim().lowercase()
+            .split(Regex("\\s+"))
+            .filter { it.isNotBlank() }
+        if (tokens.isEmpty()) return emptyList()
+        // Token AND match: every word in the query must appear (case-
+        // insensitive substring) in the message content. Newest-first.
+        // Better than strict whole-phrase substring without needing a
+        // proper FTS index — "doctor appt" matches "appointment with
+        // the doctor on Friday".
+        return readAll().asReversed().filter { msg ->
+            val content = msg.content.lowercase()
+            tokens.all { content.contains(it) }
+        }.take(limit)
     }
 
     suspend fun recent(limit: Int): List<ArchivedMessage> =
