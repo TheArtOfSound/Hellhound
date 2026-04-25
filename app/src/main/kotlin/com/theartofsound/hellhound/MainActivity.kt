@@ -38,6 +38,7 @@ class MainActivity : ComponentActivity() {
                         state = state,
                         onSendMessage = viewModel::send,
                         onCancelStream = viewModel::cancelStream,
+                        onRetryLast = viewModel::retryLast,
                         onUpdateInput = viewModel::updateInput,
                         onSaveApiKey = viewModel::saveApiKey,
                         onSelectModel = viewModel::selectModel,

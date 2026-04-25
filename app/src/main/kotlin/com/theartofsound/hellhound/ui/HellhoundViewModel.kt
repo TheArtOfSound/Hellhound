@@ -225,6 +225,24 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
         streamJob?.cancel()
     }
 
+    /**
+     * Re-send the last user message, useful after an error. We pop the
+     * last user message off the on-screen list (and any dangling
+     * assistant bubble), put it back in the input, and call send().
+     */
+    fun retryLast() {
+        val state = _uiState.value
+        if (state.sending) return
+        val lastUser = state.messages.lastOrNull { it.role == "user" } ?: return
+        val cleaned = state.messages.dropLastWhile { it.role != "user" || it == lastUser }
+            .let { list ->
+                if (list.isEmpty()) emptyList()
+                else if (list.last() == lastUser) list.dropLast(1) else list
+            }
+        _uiState.value = state.copy(messages = cleaned, input = lastUser.content, error = null)
+        send()
+    }
+
     fun refreshPermissions() {
         val ctx = getApplication<Application>()
         _uiState.value = _uiState.value.copy(

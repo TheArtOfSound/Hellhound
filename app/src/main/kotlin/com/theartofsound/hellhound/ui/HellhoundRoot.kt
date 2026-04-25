@@ -26,6 +26,7 @@ fun HellhoundRoot(
     state: HellhoundUiState,
     onSendMessage: () -> Unit,
     onCancelStream: () -> Unit,
+    onRetryLast: () -> Unit,
     onUpdateInput: (String) -> Unit,
     onSaveApiKey: (String) -> Unit,
     onSelectModel: (String) -> Unit,
@@ -70,6 +71,7 @@ fun HellhoundRoot(
                     state = state,
                     onSendMessage = onSendMessage,
                     onCancelStream = onCancelStream,
+                    onRetryLast = onRetryLast,
                     onUpdateInput = onUpdateInput,
                     onClearHistory = onClearHistory,
                     contentPadding = padding

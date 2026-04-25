@@ -60,6 +60,7 @@ fun ChatScreen(
     state: HellhoundUiState,
     onSendMessage: () -> Unit,
     onCancelStream: () -> Unit,
+    onRetryLast: () -> Unit,
     onUpdateInput: (String) -> Unit,
     onClearHistory: () -> Unit,
     contentPadding: PaddingValues
@@ -141,13 +142,23 @@ fun ChatScreen(
         }
 
         state.error?.let { error ->
-            Text(
-                text = error,
-                color = MaterialTheme.colorScheme.error,
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-            )
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = error,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.weight(1f)
+                )
+                if (state.messages.any { it.role == "user" } && !state.sending) {
+                    androidx.compose.material3.TextButton(onClick = onRetryLast) {
+                        Text("Retry")
+                    }
+                }
+            }
         }
 
         if (state.voiceFirstMode) {
