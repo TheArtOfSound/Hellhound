@@ -44,6 +44,7 @@ class MainActivity : ComponentActivity() {
                         onSaveSystemPrompt = viewModel::saveSystemPrompt,
                         onSetAutoSendVoice = viewModel::setAutoSendVoice,
                         onSetAgentMode = viewModel::setAgentMode,
+                        onSetAutoSpeak = viewModel::setAutoSpeak,
                         onRefreshModels = viewModel::refreshModels,
                         onClearHistory = viewModel::clearHistory,
                         onRefreshPermissions = viewModel::refreshPermissions

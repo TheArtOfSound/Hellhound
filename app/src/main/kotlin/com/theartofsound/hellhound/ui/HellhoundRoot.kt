@@ -32,6 +32,7 @@ fun HellhoundRoot(
     onSaveSystemPrompt: (String) -> Unit,
     onSetAutoSendVoice: (Boolean) -> Unit,
     onSetAgentMode: (Boolean) -> Unit,
+    onSetAutoSpeak: (Boolean) -> Unit,
     onRefreshModels: () -> Unit,
     onClearHistory: () -> Unit,
     onRefreshPermissions: () -> Unit
@@ -83,6 +84,7 @@ fun HellhoundRoot(
                     onSaveSystemPrompt = onSaveSystemPrompt,
                     onSetAutoSendVoice = onSetAutoSendVoice,
                     onSetAgentMode = onSetAgentMode,
+                    onSetAutoSpeak = onSetAutoSpeak,
                     onRefreshModels = onRefreshModels,
                     contentPadding = padding
                 )

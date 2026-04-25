@@ -28,6 +28,7 @@ data class HellhoundUiState(
     val systemPrompt: String = "",
     val autoSendVoice: Boolean = false,
     val agentMode: Boolean = true,
+    val autoSpeak: Boolean = false,
     val availableModels: List<String> = emptyList(),
     val refreshingModels: Boolean = false,
     val modelRefreshError: String? = null,
@@ -53,6 +54,7 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
             val systemPrompt = hellhound.settings.systemPrompt.first()
             val autoSend = hellhound.settings.autoSendVoice.first()
             val agent = hellhound.settings.agentMode.first()
+            val autoSpeak = hellhound.settings.autoSpeak.first()
             val stored = hellhound.settings.history.first()
             _uiState.value = _uiState.value.copy(
                 apiKey = key.orEmpty(),
@@ -60,6 +62,7 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
                 systemPrompt = systemPrompt,
                 autoSendVoice = autoSend,
                 agentMode = agent,
+                autoSpeak = autoSpeak,
                 messages = stored.map { UiMessage(it.role, it.content) }
             )
             // Pull the real model list as soon as we have a key; avoids the
@@ -77,6 +80,11 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
     fun setAgentMode(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(agentMode = enabled)
         viewModelScope.launch { hellhound.settings.setAgentMode(enabled) }
+    }
+
+    fun setAutoSpeak(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(autoSpeak = enabled)
+        viewModelScope.launch { hellhound.settings.setAutoSpeak(enabled) }
     }
 
     fun saveSystemPrompt(prompt: String) {
@@ -252,15 +260,20 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
         val state = _uiState.value
         val updated = state.messages.toMutableList()
         val last = updated.lastOrNull()
+        var spokenText: String? = null
         if (last != null && last.streaming) {
             if (error != null && last.content.isEmpty()) {
                 updated.removeAt(updated.lastIndex)
             } else {
                 updated[updated.lastIndex] = last.copy(streaming = false)
+                if (error == null) spokenText = last.content
             }
         }
         _uiState.value = state.copy(messages = updated, sending = false, error = error)
         persistHistory()
+        if (state.autoSpeak && !spokenText.isNullOrBlank()) {
+            hellhound.speaker.speak(spokenText)
+        }
     }
 
     private fun buildSystemPrompt(): String {

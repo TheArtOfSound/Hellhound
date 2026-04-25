@@ -127,7 +127,7 @@ class CerebrasClient(
         val code = effective?.code
         val friendly = when (code) {
             "model_not_found" ->
-                "$message Open Settings and pick another model (llama-3.3-70b is a safe default)."
+                "$message Open Settings and tap Refresh from server, then pick a model from the chips."
             "invalid_api_key", "authentication_error" ->
                 "$message Check your Cerebras API key in Settings."
             else -> message
