@@ -134,7 +134,8 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
             } catch (t: Throwable) {
                 _uiState.value = _uiState.value.copy(
                     refreshingModels = false,
-                    modelRefreshError = t.message ?: "Couldn't load models."
+                    modelRefreshError = t.message?.takeIf { it.isNotBlank() }
+                        ?: t::class.java.simpleName
                 )
             }
         }

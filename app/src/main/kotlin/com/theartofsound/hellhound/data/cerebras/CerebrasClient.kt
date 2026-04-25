@@ -25,13 +25,21 @@ class CerebrasClient(
         val httpRequest = Request.Builder()
             .url("$baseUrl/models")
             .header("Authorization", "Bearer $key")
+            .header("Accept", "application/json")
             .get()
             .build()
         http.newCall(httpRequest).execute().use { response ->
             val text = response.body?.string().orEmpty()
             if (!response.isSuccessful) throw cerebrasException(response.code, text)
-            val parsed = json.decodeFromString(ModelListResponse.serializer(), text)
-            return parsed.data.map { it.id }.filter { it.isNotBlank() }.sorted()
+            val parsed = runCatching {
+                json.decodeFromString(ModelListResponse.serializer(), text)
+            }.getOrNull()
+            val ids = parsed?.data?.mapNotNull { it.id.takeIf { id -> id.isNotBlank() } }
+            return ids?.sorted()
+                ?: throw CerebrasException(
+                    response.code,
+                    "Unexpected /v1/models response shape. First 200 chars: ${text.take(200)}"
+                )
         }
     }
 
