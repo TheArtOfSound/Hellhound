@@ -1,5 +1,6 @@
 package com.theartofsound.hellhound
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -28,6 +29,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        consumeSharedText(intent)
         setContent {
             HellhoundTheme {
                 val state by viewModel.uiState.collectAsState()
@@ -51,5 +53,22 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         viewModel.refreshPermissions()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        consumeSharedText(intent)
+    }
+
+    private fun consumeSharedText(intent: Intent?) {
+        intent ?: return
+        val shared: String? = when (intent.action) {
+            Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT)
+            Intent.ACTION_PROCESS_TEXT ->
+                intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()
+            else -> null
+        }
+        val trimmed = shared?.trim().orEmpty()
+        if (trimmed.isNotEmpty()) viewModel.appendInputFromShare(trimmed)
     }
 }

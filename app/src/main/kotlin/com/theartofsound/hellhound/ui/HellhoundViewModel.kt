@@ -79,6 +79,12 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
         _uiState.value = _uiState.value.copy(input = text)
     }
 
+    fun appendInputFromShare(shared: String) {
+        val current = _uiState.value.input
+        val merged = if (current.isBlank()) shared else "$current\n\n$shared"
+        _uiState.value = _uiState.value.copy(input = merged)
+    }
+
     fun saveApiKey(key: String) {
         viewModelScope.launch {
             val trimmed = key.trim().ifBlank { null }
