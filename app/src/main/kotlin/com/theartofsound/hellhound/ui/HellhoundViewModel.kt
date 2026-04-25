@@ -7,6 +7,8 @@ import com.theartofsound.hellhound.HellhoundApp
 import com.theartofsound.hellhound.data.cerebras.ChatMessage
 import com.theartofsound.hellhound.services.HellhoundAccessibilityService
 import com.theartofsound.hellhound.services.HellhoundNotificationListener
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,6 +36,8 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
         availableModels = com.theartofsound.hellhound.data.cerebras.CerebrasModelIds.all
     ))
     val uiState: StateFlow<HellhoundUiState> = _uiState.asStateFlow()
+
+    private var streamJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -66,7 +70,12 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun clearHistory() {
+        cancelStream()
         _uiState.value = _uiState.value.copy(messages = emptyList(), error = null)
+    }
+
+    fun cancelStream() {
+        streamJob?.cancel()
     }
 
     fun refreshPermissions() {
@@ -92,7 +101,7 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
             sending = true,
             error = null
         )
-        viewModelScope.launch {
+        streamJob = viewModelScope.launch {
             val history = (_uiState.value.messages.dropLast(1)).map {
                 ChatMessage(role = it.role, content = it.content)
             }
@@ -109,21 +118,28 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
                     updated[updated.lastIndex] = last.copy(content = last.content + chunk)
                     _uiState.value = state.copy(messages = updated)
                 }
-                val state = _uiState.value
-                val updated = state.messages.toMutableList()
-                val last = updated.last()
-                updated[updated.lastIndex] = last.copy(streaming = false)
-                _uiState.value = state.copy(messages = updated, sending = false)
+                finalizeStream(error = null)
+            } catch (cancel: CancellationException) {
+                finalizeStream(error = null)
+                throw cancel
             } catch (t: Throwable) {
-                val state = _uiState.value
-                val updated = state.messages.toMutableList().apply { removeLast() }
-                _uiState.value = state.copy(
-                    messages = updated,
-                    sending = false,
-                    error = t.message ?: "Request failed"
-                )
+                finalizeStream(error = t.message ?: "Request failed")
             }
         }
+    }
+
+    private fun finalizeStream(error: String?) {
+        val state = _uiState.value
+        val updated = state.messages.toMutableList()
+        val last = updated.lastOrNull()
+        if (last != null && last.streaming) {
+            if (error != null && last.content.isEmpty()) {
+                updated.removeAt(updated.lastIndex)
+            } else {
+                updated[updated.lastIndex] = last.copy(streaming = false)
+            }
+        }
+        _uiState.value = state.copy(messages = updated, sending = false, error = error)
     }
 
     private fun buildSystemPrompt(): String {

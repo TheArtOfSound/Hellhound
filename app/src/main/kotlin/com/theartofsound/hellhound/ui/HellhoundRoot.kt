@@ -25,6 +25,7 @@ private enum class Tab { Chat, Permissions, Settings }
 fun HellhoundRoot(
     state: HellhoundUiState,
     onSendMessage: () -> Unit,
+    onCancelStream: () -> Unit,
     onUpdateInput: (String) -> Unit,
     onSaveApiKey: (String) -> Unit,
     onSelectModel: (String) -> Unit,
@@ -61,6 +62,7 @@ fun HellhoundRoot(
                 Tab.Chat -> ChatScreen(
                     state = state,
                     onSendMessage = onSendMessage,
+                    onCancelStream = onCancelStream,
                     onUpdateInput = onUpdateInput,
                     onClearHistory = onClearHistory,
                     contentPadding = padding

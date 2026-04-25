@@ -14,9 +14,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -27,6 +30,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.theartofsound.hellhound.R
@@ -35,6 +39,7 @@ import com.theartofsound.hellhound.R
 fun ChatScreen(
     state: HellhoundUiState,
     onSendMessage: () -> Unit,
+    onCancelStream: () -> Unit,
     onUpdateInput: (String) -> Unit,
     onClearHistory: () -> Unit,
     contentPadding: PaddingValues
@@ -106,13 +111,23 @@ fun ChatScreen(
                 onValueChange = onUpdateInput,
                 modifier = Modifier.weight(1f),
                 placeholder = { Text(stringResource(R.string.chat_hint)) },
-                enabled = !state.sending
+                enabled = !state.sending,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                keyboardActions = KeyboardActions(onSend = {
+                    if (state.input.isNotBlank()) onSendMessage()
+                })
             )
-            IconButton(
-                onClick = onSendMessage,
-                enabled = !state.sending && state.input.isNotBlank()
-            ) {
-                Icon(Icons.Filled.Send, contentDescription = stringResource(R.string.chat_send))
+            if (state.sending) {
+                IconButton(onClick = onCancelStream) {
+                    Icon(Icons.Filled.Stop, contentDescription = "Stop")
+                }
+            } else {
+                IconButton(
+                    onClick = onSendMessage,
+                    enabled = state.input.isNotBlank()
+                ) {
+                    Icon(Icons.Filled.Send, contentDescription = stringResource(R.string.chat_send))
+                }
             }
         }
     }

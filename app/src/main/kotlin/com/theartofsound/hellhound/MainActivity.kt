@@ -35,6 +35,7 @@ class MainActivity : ComponentActivity() {
                     HellhoundRoot(
                         state = state,
                         onSendMessage = viewModel::send,
+                        onCancelStream = viewModel::cancelStream,
                         onUpdateInput = viewModel::updateInput,
                         onSaveApiKey = viewModel::saveApiKey,
                         onSelectModel = viewModel::selectModel,
