@@ -203,10 +203,13 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
             error = null
         )
         streamJob = viewModelScope.launch {
-            val history = (_uiState.value.messages.dropLast(1)).map {
+            val rawHistory = _uiState.value.messages.dropLast(1)
+            val truncated = rawHistory.size > API_HISTORY_LIMIT
+            val historySlice = if (truncated) rawHistory.takeLast(API_HISTORY_LIMIT) else rawHistory
+            val history = historySlice.map {
                 ChatMessage(role = it.role, content = it.content)
             }
-            val systemPrompt = buildSystemPrompt()
+            val systemPrompt = buildSystemPrompt(historyTruncated = truncated)
             try {
                 if (_uiState.value.agentMode) {
                     val finalText = hellhound.repository.runAgent(
@@ -291,7 +294,7 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun buildSystemPrompt(): String {
+    private fun buildSystemPrompt(historyTruncated: Boolean = false): String {
         val state = _uiState.value
         val basePrompt = state.systemPrompt.ifBlank {
             com.theartofsound.hellhound.data.SettingsStore.DEFAULT_SYSTEM_PROMPT
@@ -300,7 +303,14 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
         // so we skip the manual dump to save tokens. In plain mode we
         // pre-load whatever is already cached so it's available without
         // an extra round-trip.
-        if (state.agentMode) return basePrompt
+        if (state.agentMode) {
+            return if (historyTruncated) {
+                "$basePrompt\n\nNote: only the last $API_HISTORY_LIMIT messages of " +
+                    "this session are in your context window. Earlier turns are " +
+                    "archived — call recall(query) or recent_history(limit) to " +
+                    "look them up when the user references something older."
+            } else basePrompt
+        }
         val context = buildString {
             if (state.accessibilityEnabled) {
                 val screen = HellhoundAccessibilityService.lastScreenSnapshot()
@@ -329,6 +339,7 @@ class HellhoundViewModel(app: Application) : AndroidViewModel(app) {
     private companion object {
         const val SCREEN_LIMIT = 4000
         const val NOTIFICATION_LIMIT = 10
+        const val API_HISTORY_LIMIT = 20
 
         // Cerebras model prefixes empirically observed to emit proper
         // OpenAI tool_calls. llama3.x-8b inlines the call as plain text
