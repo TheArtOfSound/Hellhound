@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.getValue
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -255,6 +257,32 @@ private fun VoiceFirstControls(
     }
 }
 
+@Composable
+private fun TypingDots(color: androidx.compose.ui.graphics.Color) {
+    val transition = androidx.compose.animation.core.rememberInfiniteTransition(label = "typing")
+    val phase by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 3f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            animation = androidx.compose.animation.core.tween(
+                durationMillis = 900,
+                easing = androidx.compose.animation.core.LinearEasing
+            )
+        ),
+        label = "typing-phase"
+    )
+    val active = phase.toInt().coerceIn(0, 2)
+    Row {
+        repeat(3) { i ->
+            val alpha = if (i == active) 1f else 0.35f
+            Text(text = "•", color = color.copy(alpha = alpha))
+            if (i != 2) androidx.compose.foundation.layout.Spacer(
+                modifier = Modifier.width(2.dp)
+            )
+        }
+    }
+}
+
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun EmptyState(
@@ -350,18 +378,15 @@ private fun MessageBubble(message: UiMessage) {
                     )
                     .padding(horizontal = 12.dp, vertical = 8.dp)
             ) {
-                val display = message.content.ifEmpty {
-                    if (message.streaming) "…" else ""
-                }
-                if (display.isNotEmpty() || isUser) {
+                val display = message.content
+                if (display.isNotEmpty()) {
                     if (isUser) {
                         Text(text = display, color = fg)
                     } else {
                         Text(text = rememberMarkdown(display), color = fg)
                     }
-                } else {
-                    // Streaming with no content yet but maybe traces visible above.
-                    Text(text = "…", color = fg.copy(alpha = 0.6f))
+                } else if (message.streaming) {
+                    TypingDots(color = fg)
                 }
             }
         }
