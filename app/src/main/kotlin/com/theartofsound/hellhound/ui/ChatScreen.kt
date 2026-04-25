@@ -354,7 +354,7 @@ private fun EmptyState(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun MessageBubble(message: UiMessage) {
     val isUser = message.role == "user"
