@@ -193,10 +193,12 @@ private fun MessageBubble(message: UiMessage) {
                 .background(bg, RoundedCornerShape(12.dp))
                 .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
-            Text(
-                text = message.content.ifEmpty { if (message.streaming) "…" else "" },
-                color = fg
-            )
+            val display = message.content.ifEmpty { if (message.streaming) "…" else "" }
+            if (isUser) {
+                Text(text = display, color = fg)
+            } else {
+                Text(text = rememberMarkdown(display), color = fg)
+            }
         }
     }
 }
