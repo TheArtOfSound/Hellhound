@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
   group: build-${{ github.workflow }}-${{ github.ref }}
@@ -53,6 +54,29 @@ jobs:
           path: build.log
           if-no-files-found: ignore
           retention-days: 7
+
+      - name: Post build error to PR on failure
+        if: failure() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ ! -f build.log ]; then
+            echo "no build.log to post"
+            exit 0
+          fi
+          {
+            echo '<!-- ci-build-error -->'
+            echo '### Build failed at `${{ github.sha }}`'
+            echo '<details><summary>Last 200 lines of build.log</summary>'
+            echo
+            echo '```'
+            tail -n 200 build.log
+            echo '```'
+            echo '</details>'
+          } > /tmp/comment.md
+          gh api -X POST \
+            "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+            -f body="$(cat /tmp/comment.md)"
 
       - name: Compute slash-safe tag
         id: tag
