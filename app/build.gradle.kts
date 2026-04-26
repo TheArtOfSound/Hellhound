@@ -1,7 +1,21 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.serialization")
+}
+
+val cerebrasApiKey: String = run {
+    val fromEnv = System.getenv("CEREBRAS_API_KEY")
+    if (!fromEnv.isNullOrBlank()) return@run fromEnv
+    val localFile = rootProject.file("local.properties")
+    if (localFile.exists()) {
+        val props = Properties()
+        localFile.inputStream().use(props::load)
+        return@run props.getProperty("cerebras.apiKey", "").trim()
+    }
+    ""
 }
 
 android {
@@ -16,6 +30,12 @@ android {
         versionName = "0.1.0"
 
         vectorDrawables { useSupportLibrary = true }
+
+        buildConfigField(
+            "String",
+            "CEREBRAS_API_KEY",
+            "\"${cerebrasApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+        )
     }
 
     buildTypes {

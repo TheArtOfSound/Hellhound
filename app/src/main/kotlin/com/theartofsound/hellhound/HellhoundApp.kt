@@ -8,6 +8,11 @@ import com.theartofsound.hellhound.data.SettingsStore
 import com.theartofsound.hellhound.data.cerebras.CerebrasClient
 import com.theartofsound.hellhound.tools.ToolDispatcher
 import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 class HellhoundApp : Application() {
 
@@ -23,6 +28,7 @@ class HellhoundApp : Application() {
         private set
 
     private val cachedKey = AtomicReference<String?>(null)
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
         super.onCreate()
@@ -32,6 +38,14 @@ class HellhoundApp : Application() {
         speaker = Speaker(this)
         memory = MemoryStore(this)
         tools = ToolDispatcher(this, memory = memory)
+
+        val embedded = BuildConfig.CEREBRAS_API_KEY
+        if (embedded.isNotBlank()) {
+            appScope.launch {
+                val current = settings.apiKey.first()
+                if (current.isNullOrBlank()) settings.setApiKey(embedded)
+            }
+        }
     }
 
     override fun onTerminate() {
