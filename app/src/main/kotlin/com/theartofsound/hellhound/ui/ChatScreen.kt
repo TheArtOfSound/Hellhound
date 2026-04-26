@@ -2,6 +2,7 @@ package com.theartofsound.hellhound.ui
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
