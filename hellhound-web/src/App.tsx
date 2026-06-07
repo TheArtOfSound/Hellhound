@@ -7,6 +7,18 @@ import {
   detectProviderFromKey,
   sendHellhoundMessage
 } from "./providers";
+import {
+  AgentProject,
+  addGoal,
+  addProject,
+  buildAgentContext,
+  craftLocalNudge,
+  loadAgentState,
+  markNudged,
+  rememberLine,
+  saveAgentState,
+  shouldNudge
+} from "./localAgent";
 
 type SavedSettings = {
   providerId: string;
@@ -25,7 +37,7 @@ const STORAGE_KEY = "hellhound-web-settings-v2";
 
 const starters = [
   "Search the web, then give me the ruthless truth about this idea.",
-  "Find what changed recently and tell me what matters.",
+  "Find a cool current tech or AI article and explain why it matters.",
   "Audit this plan like failure is hunting it.",
   "Turn this messy thing into a clean execution path."
 ];
@@ -51,10 +63,15 @@ function uid() {
 
 export default function App() {
   const [settings, setSettings] = useState(loadSettings);
+  const [agentState, setAgentState] = useState(loadAgentState);
+  const [scratch, setScratch] = useState("");
+  const [projectKind, setProjectKind] = useState<AgentProject["kind"]>("project");
+
   const selectedProvider = useMemo(
     () => PROVIDERS.find((provider) => provider.id === settings.providerId) ?? PROVIDERS[0],
     [settings.providerId]
   );
+
   const provider: ProviderPreset = useMemo(
     () => ({
       ...selectedProvider,
@@ -71,7 +88,7 @@ export default function App() {
     {
       id: uid(),
       role: "assistant",
-      content: "Hellhound is online. Internet mode is armed. Bring a key and ask something worth hunting."
+      content: "Hellhound is online. Local memory is awake. Internet mode is armed. Bring a key and ask something worth hunting."
     }
   ]);
   const [error, setError] = useState("");
@@ -82,6 +99,28 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
   }, [settings]);
+
+  useEffect(() => {
+    saveAgentState(agentState);
+  }, [agentState]);
+
+  useEffect(() => {
+    const tick = window.setInterval(() => {
+      setAgentState((current) => {
+        if (!shouldNudge(current)) return current;
+
+        const nudge = craftLocalNudge(current);
+        setMessages((existing) => [
+          ...existing,
+          { id: uid(), role: "assistant", content: nudge }
+        ]);
+
+        return markNudged(current);
+      });
+    }, 30000);
+
+    return () => window.clearInterval(tick);
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -104,11 +143,14 @@ export default function App() {
   function updateApiKey(value: string) {
     setApiKey(value);
     const detected = detectProviderFromKey(value);
+
     if (!detected) {
       setKeyDetection("");
       return;
     }
+
     setKeyDetection(`${detected.confidence.toUpperCase()}: ${detected.provider.name} — ${detected.reason}`);
+
     if (detected.confidence !== "low") {
       setSettings((current) => ({
         ...current,
@@ -119,9 +161,27 @@ export default function App() {
     }
   }
 
+  function addScratch(kind: "memory" | "goal" | "project") {
+    if (!scratch.trim()) return;
+
+    setAgentState((current) => {
+      if (kind === "memory") return rememberLine(current, scratch);
+      if (kind === "goal") return addGoal(current, scratch);
+      return addProject(current, scratch, projectKind);
+    });
+
+    setMessages((existing) => [
+      ...existing,
+      { id: uid(), role: "assistant", content: `Logged ${kind}: ${scratch.trim()}` }
+    ]);
+
+    setScratch("");
+  }
+
   async function send(text = input) {
     const trimmed = text.trim();
     if (!trimmed || busy) return;
+
     setError("");
 
     if (!apiKey.trim()) {
@@ -132,6 +192,7 @@ export default function App() {
     const userMessage: UiMessage = { id: uid(), role: "user", content: trimmed };
     const pending: UiMessage = { id: uid(), role: "assistant", content: "HUNTING", pending: true };
     const nextMessages = [...messages.filter((message) => !message.pending), userMessage];
+
     setMessages([...nextMessages, pending]);
     setInput("");
     setBusy(true);
@@ -142,6 +203,7 @@ export default function App() {
     try {
       const providerMessages: ChatMessage[] = [
         { role: "system", content: HELLHOUND_SYSTEM_PROMPT },
+        { role: "system", content: buildAgentContext(agentState) },
         ...nextMessages
           .filter((message) => message.role === "user" || message.role === "assistant")
           .slice(-18)
@@ -157,6 +219,10 @@ export default function App() {
         internet: settings.internet,
         signal: controller.signal
       });
+
+      if (trimmed.length > 18) {
+        setAgentState((current) => rememberLine(current, `User asked: ${trimmed.slice(0, 180)}`));
+      }
 
       setMessages([...nextMessages, { id: uid(), role: "assistant", content: result.reply }]);
     } catch (err) {
@@ -194,7 +260,7 @@ export default function App() {
         <div className="brand-block">
           <div className="mark">HH</div>
           <h1>Hellhound</h1>
-          <p>A different AI interface. Darker. Sharper. Web-aware when you arm it.</p>
+          <p>A different AI interface. Darker. Sharper. Web-aware. Locally self-starting.</p>
         </div>
 
         <section className="compact-grid">
@@ -245,15 +311,54 @@ export default function App() {
           />
           <small>{selectedProvider.note}</small>
         </section>
+
+        <section className="details">
+          <label>Local agent</label>
+          <button
+            className={agentState.enabled ? "armed" : ""}
+            onClick={() => setAgentState((s) => ({ ...s, enabled: !s.enabled }))}
+          >
+            {agentState.enabled ? "Autonomy on" : "Autonomy off"}
+          </button>
+
+          <input
+            value={scratch}
+            onChange={(event) => setScratch(event.target.value)}
+            placeholder="Memory, goal, project, paper, code idea..."
+          />
+
+          <select
+            value={projectKind}
+            onChange={(event) => setProjectKind(event.target.value as AgentProject["kind"])}
+          >
+            <option value="project">project</option>
+            <option value="paper">paper</option>
+            <option value="code">code</option>
+            <option value="research">research</option>
+            <option value="life">life</option>
+          </select>
+
+          <div className="header-actions">
+            <button onClick={() => addScratch("memory")}>Remember</button>
+            <button onClick={() => addScratch("goal")}>Goal</button>
+            <button onClick={() => addScratch("project")}>Project</button>
+          </div>
+
+          <small>{agentState.projects.length} projects · {agentState.goals.length} goals · {agentState.memory.length} memories</small>
+        </section>
       </aside>
 
       <section className="chat-shell">
         <header className="chat-header">
           <div>
-            <span className="overline">{settings.internet ? "Internet mode armed" : "Local model call only"}</span>
+            <span className="overline">
+              {settings.internet ? "Internet mode armed" : "Local model call only"} · {agentState.enabled ? "autonomy awake" : "autonomy off"}
+            </span>
             <h2>{provider.name} / {provider.model}</h2>
           </div>
+
           <div className="header-actions">
+            <button onClick={() => setMessages((existing) => [...existing, { id: uid(), role: "assistant", content: craftLocalNudge(agentState) }])}>Nudge</button>
             <button onClick={clearChat}>Clear</button>
             {busy ? <button className="danger" onClick={stop}>Stop</button> : null}
           </div>
@@ -290,7 +395,7 @@ export default function App() {
             }}
           />
           <div className="send-row">
-            <span>Ctrl/⌘ + Enter to send · Provider calls run through the Worker</span>
+            <span>Ctrl/⌘ + Enter · local memory active · Worker tools armed</span>
             <button className="send" onClick={() => send()} disabled={!input.trim() || busy}>Send</button>
           </div>
         </footer>

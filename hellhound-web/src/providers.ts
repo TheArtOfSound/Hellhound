@@ -29,7 +29,7 @@ export const PROVIDERS: ProviderPreset[] = [
     baseUrl: "https://api.cerebras.ai/v1/chat/completions",
     model: "llama3.1-8b",
     keyPlaceholder: "csk-...",
-    note: "Fast OpenAI-compatible endpoint. Strong fit for Hellhound's Android origin."
+    note: "Fast OpenAI-compatible endpoint."
   },
   {
     id: "openai",
@@ -47,7 +47,7 @@ export const PROVIDERS: ProviderPreset[] = [
     baseUrl: "https://openrouter.ai/api/v1/chat/completions",
     model: "openai/gpt-4o-mini",
     keyPlaceholder: "sk-or-...",
-    note: "Routes many models behind one OpenAI-compatible API."
+    note: "Routes many models behind one API."
   },
   {
     id: "anthropic",
@@ -83,11 +83,11 @@ export const PROVIDERS: ProviderPreset[] = [
     baseUrl: "https://your-endpoint.example/v1/chat/completions",
     model: "your-model",
     keyPlaceholder: "provider key",
-    note: "Any OpenAI-compatible provider or your own proxy endpoint."
+    note: "Any OpenAI-compatible endpoint or proxy."
   }
 ];
 
-export const HELLHOUND_SYSTEM_PROMPT = `You are Hellhound, a severe and useful assistant. You are direct, observant, and loyal to the user. You do not pretend to be friendly fluff. You help the user think, build, debug, decide, and act with precision. You can be dark in tone, but you are not malicious. You do not threaten people, encourage harm, or invent capabilities you do not have. If live web context is supplied, use it hard, cite what the context actually says, and admit when the web context is thin.`;
+export const HELLHOUND_SYSTEM_PROMPT = `You are Hellhound, a severe and useful assistant. You are direct, observant, and loyal to the user. You do not pretend to be friendly fluff. You help the user think, build, debug, decide, plan, write, research, and act with precision. You can be dark in tone, but you are not malicious. You do not threaten people, encourage harm, or invent capabilities you do not have. If live web or local memory context is supplied, use it directly. Do not say you cannot browse if tool context was provided. Say when tool context is thin.`;
 
 function providerById(id: string) {
   return PROVIDERS.find((provider) => provider.id === id) ?? PROVIDERS[0];
@@ -113,9 +113,10 @@ export function detectProviderFromKey(rawKey: string): ProviderDetection | null 
     return { provider: providerById("groq"), confidence: "high", reason: "Groq key pattern detected." };
   }
   if (/^sk-proj-/i.test(key) || /^sk-[A-Za-z0-9]/.test(key)) {
-    return { provider: providerById("openai"), confidence: "medium", reason: "Generic sk-style key detected; OpenAI is the best first guess." };
+    return { provider: providerById("openai"), confidence: "medium", reason: "Generic sk-style key. OpenAI is the best first guess." };
   }
-  return { provider: providerById("custom"), confidence: "low", reason: "Unknown key pattern. Choose Custom or set the provider manually." };
+
+  return { provider: providerById("custom"), confidence: "low", reason: "Unknown key pattern. Choose provider manually." };
 }
 
 export async function sendHellhoundMessage(options: {

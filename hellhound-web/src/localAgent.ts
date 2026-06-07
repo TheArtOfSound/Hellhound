@@ -32,8 +32,14 @@ export function defaultAgentState(): AgentState {
     enabled: true,
     nudgeMinutes: 12,
     lastNudgeAt: "",
-    memory: ["Hellhound should be direct, self-starting, project-aware, and useful without waiting for perfect instructions."],
-    goals: ["Watch for useful next steps.", "Suggest concrete project moves.", "Keep the user from drifting."],
+    memory: [
+      "Hellhound should be direct, self-starting, project-aware, and useful without waiting for perfect instructions."
+    ],
+    goals: [
+      "Watch for useful next steps.",
+      "Suggest concrete project moves.",
+      "Keep the user from drifting."
+    ],
     projects: []
   };
 }
@@ -113,6 +119,7 @@ export function craftLocalNudge(state: AgentState) {
   if (active) {
     return `Nudge: ${active.title} is still active. Pick one move: outline it, test it, publish it, or kill it.`;
   }
+
   const goal = state.goals[0] || "choose a useful target";
   return `Nudge: ${goal} What is the next concrete move?`;
 }
