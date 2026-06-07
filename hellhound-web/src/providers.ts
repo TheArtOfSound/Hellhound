@@ -74,24 +74,24 @@ export const PROVIDERS: ProviderPreset[] = [
 
 export const HELLHOUND_SYSTEM_PROMPT = `You are Hellhound, a severe and useful assistant. You are direct, observant, and loyal to the user. You do not pretend to be friendly fluff. You help the user think, build, debug, decide, and act with precision. You can be dark in tone, but you are not malicious. You do not threaten people, encourage harm, or invent capabilities you do not have.`;
 
-function headersFor(provider: ProviderPreset, apiKey: string) {
+function headersFor(provider: ProviderPreset, apiKey: string): Record<string, string> {
+  const headers: Record<string, string> = {
+    "content-type": "application/json"
+  };
+
   if (provider.kind === "anthropic") {
-    return {
-      "content-type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true"
-    };
+    headers["x-api-key"] = apiKey;
+    headers["anthropic-version"] = "2023-06-01";
+    headers["anthropic-dangerous-direct-browser-access"] = "true";
+    return headers;
   }
 
   if (provider.kind === "gemini") {
-    return { "content-type": "application/json" };
+    return headers;
   }
 
-  return {
-    "content-type": "application/json",
-    "authorization": `Bearer ${apiKey}`
-  };
+  headers.authorization = `Bearer ${apiKey}`;
+  return headers;
 }
 
 function payloadFor(provider: ProviderPreset, model: string, messages: ChatMessage[], temperature: number) {
@@ -135,16 +135,18 @@ function endpointFor(provider: ProviderPreset, apiKey: string, model: string) {
   return provider.baseUrl;
 }
 
-function parseResponse(provider: ProviderPreset, data: any): string {
+function parseResponse(provider: ProviderPreset, data: unknown): string {
+  const parsed = data as any;
+
   if (provider.kind === "anthropic") {
-    return data?.content?.map((part: any) => part?.text ?? "").join("").trim() || "No text returned.";
+    return parsed?.content?.map((part: any) => part?.text ?? "").join("").trim() || "No text returned.";
   }
 
   if (provider.kind === "gemini") {
-    return data?.candidates?.[0]?.content?.parts?.map((part: any) => part?.text ?? "").join("").trim() || "No text returned.";
+    return parsed?.candidates?.[0]?.content?.parts?.map((part: any) => part?.text ?? "").join("").trim() || "No text returned.";
   }
 
-  return data?.choices?.[0]?.message?.content?.trim() || "No text returned.";
+  return parsed?.choices?.[0]?.message?.content?.trim() || "No text returned.";
 }
 
 export async function sendProviderMessage(options: {
@@ -164,11 +166,12 @@ export async function sendProviderMessage(options: {
   });
 
   const text = await response.text();
-  let data: any = null;
+  let data: unknown = null;
   try { data = text ? JSON.parse(text) : null; } catch { data = null; }
 
   if (!response.ok) {
-    const message = data?.error?.message || data?.error || text || `${response.status} ${response.statusText}`;
+    const parsed = data as any;
+    const message = parsed?.error?.message || parsed?.error || text || `${response.status} ${response.statusText}`;
     throw new Error(typeof message === "string" ? message : JSON.stringify(message));
   }
 
