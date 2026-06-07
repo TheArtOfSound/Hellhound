@@ -4,7 +4,8 @@ import {
   HELLHOUND_SYSTEM_PROMPT,
   PROVIDERS,
   ProviderPreset,
-  sendProviderMessage
+  detectProviderFromKey,
+  sendHellhoundMessage
 } from "./providers";
 
 type SavedSettings = {
@@ -12,6 +13,7 @@ type SavedSettings = {
   baseUrl: string;
   model: string;
   temperature: number;
+  internet: boolean;
 };
 
 type UiMessage = ChatMessage & {
@@ -19,13 +21,13 @@ type UiMessage = ChatMessage & {
   pending?: boolean;
 };
 
-const STORAGE_KEY = "hellhound-web-settings-v1";
+const STORAGE_KEY = "hellhound-web-settings-v2";
 
 const starters = [
-  "Audit this plan like it is going to fail unless we fix it.",
-  "Turn this messy idea into a build plan with priorities.",
-  "Give me the blunt version, then the useful version.",
-  "Find the weak point in this argument."
+  "Search the web, then give me the ruthless truth about this idea.",
+  "Find what changed recently and tell me what matters.",
+  "Audit this plan like failure is hunting it.",
+  "Turn this messy thing into a clean execution path."
 ];
 
 function loadSettings(): SavedSettings {
@@ -35,10 +37,11 @@ function loadSettings(): SavedSettings {
       providerId: parsed.providerId || "cerebras",
       baseUrl: parsed.baseUrl || "",
       model: parsed.model || "",
-      temperature: Number.isFinite(parsed.temperature) ? parsed.temperature : 0.45
+      temperature: Number.isFinite(parsed.temperature) ? parsed.temperature : 0.45,
+      internet: typeof parsed.internet === "boolean" ? parsed.internet : true
     };
   } catch {
-    return { providerId: "cerebras", baseUrl: "", model: "", temperature: 0.45 };
+    return { providerId: "cerebras", baseUrl: "", model: "", temperature: 0.45, internet: true };
   }
 }
 
@@ -62,12 +65,13 @@ export default function App() {
   );
 
   const [apiKey, setApiKey] = useState("");
+  const [keyDetection, setKeyDetection] = useState("");
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<UiMessage[]>([
     {
       id: uid(),
       role: "assistant",
-      content: "Hellhound is awake. Bring a key, choose a provider, and ask something worth answering."
+      content: "Hellhound is online. Internet mode is armed. Bring a key and ask something worth hunting."
     }
   ]);
   const [error, setError] = useState("");
@@ -97,18 +101,36 @@ export default function App() {
     }));
   }
 
+  function updateApiKey(value: string) {
+    setApiKey(value);
+    const detected = detectProviderFromKey(value);
+    if (!detected) {
+      setKeyDetection("");
+      return;
+    }
+    setKeyDetection(`${detected.confidence.toUpperCase()}: ${detected.provider.name} — ${detected.reason}`);
+    if (detected.confidence !== "low") {
+      setSettings((current) => ({
+        ...current,
+        providerId: detected.provider.id,
+        baseUrl: detected.provider.baseUrl,
+        model: detected.provider.model
+      }));
+    }
+  }
+
   async function send(text = input) {
     const trimmed = text.trim();
     if (!trimmed || busy) return;
     setError("");
 
     if (!apiKey.trim()) {
-      setError("Add a provider API key first. Hellhound does not ship with a shared key.");
+      setError("Add a provider API key first. Hellhound can detect common providers from the key pattern.");
       return;
     }
 
     const userMessage: UiMessage = { id: uid(), role: "user", content: trimmed };
-    const pending: UiMessage = { id: uid(), role: "assistant", content: "...", pending: true };
+    const pending: UiMessage = { id: uid(), role: "assistant", content: "HUNTING", pending: true };
     const nextMessages = [...messages.filter((message) => !message.pending), userMessage];
     setMessages([...nextMessages, pending]);
     setInput("");
@@ -126,16 +148,17 @@ export default function App() {
           .map(({ role, content }) => ({ role, content }))
       ];
 
-      const reply = await sendProviderMessage({
+      const result = await sendHellhoundMessage({
         provider,
         apiKey: apiKey.trim(),
         model: provider.model,
         messages: providerMessages,
         temperature: settings.temperature,
+        internet: settings.internet,
         signal: controller.signal
       });
 
-      setMessages([...nextMessages, { id: uid(), role: "assistant", content: reply }]);
+      setMessages([...nextMessages, { id: uid(), role: "assistant", content: result.reply }]);
     } catch (err) {
       if ((err as Error).name === "AbortError") {
         setMessages(nextMessages);
@@ -159,7 +182,7 @@ export default function App() {
       {
         id: uid(),
         role: "assistant",
-        content: "Chat cleared. Hellhound is still here."
+        content: "Chat cleared. Hellhound remains awake."
       }
     ]);
     setError("");
@@ -168,31 +191,42 @@ export default function App() {
   return (
     <main>
       <aside className="sidebar">
-        <div>
+        <div className="brand-block">
           <div className="mark">HH</div>
           <h1>Hellhound</h1>
-          <p>Not another polite assistant. A darker interface for bringing your own model key.</p>
+          <p>A different AI interface. Darker. Sharper. Web-aware when you arm it.</p>
         </div>
 
-        <section>
-          <label>Provider</label>
-          <select value={selectedProvider.id} onChange={(event) => chooseProvider(event.target.value)}>
-            {PROVIDERS.map((item) => (
-              <option key={item.id} value={item.id}>{item.name}</option>
-            ))}
-          </select>
+        <section className="compact-grid">
+          <div>
+            <label>Provider</label>
+            <select value={selectedProvider.id} onChange={(event) => chooseProvider(event.target.value)}>
+              {PROVIDERS.map((item) => (
+                <option key={item.id} value={item.id}>{item.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label>Internet</label>
+            <button
+              className={settings.internet ? "armed" : ""}
+              onClick={() => patchSettings({ internet: !settings.internet })}
+            >
+              {settings.internet ? "Armed" : "Off"}
+            </button>
+          </div>
         </section>
 
         <section>
           <label>API key</label>
           <input
             value={apiKey}
-            onChange={(event) => setApiKey(event.target.value)}
+            onChange={(event) => updateApiKey(event.target.value)}
             placeholder={selectedProvider.keyPlaceholder}
             type="password"
             autoComplete="off"
           />
-          <small>Your key stays in this browser session unless your provider receives it for the request.</small>
+          <small>{keyDetection || "Paste a key and Hellhound will guess the provider when possible."}</small>
         </section>
 
         <section className="details">
@@ -211,16 +245,12 @@ export default function App() {
           />
           <small>{selectedProvider.note}</small>
         </section>
-
-        <section className="warning">
-          Direct browser calls depend on provider CORS rules. If a provider blocks browser requests, use a small proxy endpoint with the same OpenAI-compatible shape.
-        </section>
       </aside>
 
       <section className="chat-shell">
         <header className="chat-header">
           <div>
-            <span className="overline">Hellhound web interface</span>
+            <span className="overline">{settings.internet ? "Internet mode armed" : "Local model call only"}</span>
             <h2>{provider.name} / {provider.model}</h2>
           </div>
           <div className="header-actions">
@@ -251,7 +281,7 @@ export default function App() {
           <textarea
             value={input}
             onChange={(event) => setInput(event.target.value)}
-            placeholder="Ask Hellhound. Be specific."
+            placeholder="Ask Hellhound. If Internet is armed, it will pull live context before answering."
             onKeyDown={(event) => {
               if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
                 event.preventDefault();
@@ -260,7 +290,7 @@ export default function App() {
             }}
           />
           <div className="send-row">
-            <span>Ctrl/⌘ + Enter to send</span>
+            <span>Ctrl/⌘ + Enter to send · Provider calls run through the Worker</span>
             <button className="send" onClick={() => send()} disabled={!input.trim() || busy}>Send</button>
           </div>
         </footer>
