@@ -19,6 +19,7 @@ import {
   saveAgentState,
   shouldNudge
 } from "./localAgent";
+import AutopilotPanel from "./AutopilotPanel";
 
 type SavedSettings = {
   providerId: string;
@@ -311,6 +312,8 @@ export default function App() {
           />
           <small>{selectedProvider.note}</small>
         </section>
+
+        <AutopilotPanel provider={provider} apiKey={apiKey.trim()} temperature={settings.temperature} />
 
         <section className="details">
           <label>Local agent</label>
