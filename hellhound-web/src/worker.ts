@@ -122,7 +122,7 @@ async function getWebContext(query: string) {
 }
 
 async function handleChat(request: Request) {
-  const body = await request.json<RequestBody>();
+  const body = await request.json() as RequestBody;
   if (!body.apiKey?.trim()) return json({ error: "Missing provider API key." }, { status: 400 });
   if (!body.provider?.baseUrl || !body.provider?.kind) return json({ error: "Missing provider configuration." }, { status: 400 });
 
