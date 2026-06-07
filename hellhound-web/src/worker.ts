@@ -1,7 +1,11 @@
 import { HELLHOUND_SYSTEM_PROMPT, ProviderPreset, ChatMessage } from "./providers";
 
+type AssetBinding = {
+  fetch(request: Request): Promise<Response> | Response;
+};
+
 type Env = {
-  ASSETS: Fetcher;
+  ASSETS: AssetBinding;
 };
 
 type RequestBody = {
