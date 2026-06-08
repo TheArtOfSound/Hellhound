@@ -14,10 +14,8 @@ import {
   buildAgentContext,
   craftLocalNudge,
   loadAgentState,
-  markNudged,
   rememberLine,
-  saveAgentState,
-  shouldNudge
+  saveAgentState
 } from "./localAgent";
 import AutopilotPanel from "./AutopilotPanel";
 
@@ -89,7 +87,7 @@ export default function App() {
     {
       id: uid(),
       role: "assistant",
-      content: "Hellhound is online. Local memory is awake. Internet mode is armed. Bring a key and ask something worth hunting."
+      content: "Hellhound is online. Local memory is awake. Internet mode is armed. Add a provider key, then use chat or real autopilot."
     }
   ]);
   const [error, setError] = useState("");
@@ -104,24 +102,6 @@ export default function App() {
   useEffect(() => {
     saveAgentState(agentState);
   }, [agentState]);
-
-  useEffect(() => {
-    const tick = window.setInterval(() => {
-      setAgentState((current) => {
-        if (!shouldNudge(current)) return current;
-
-        const nudge = craftLocalNudge(current);
-        setMessages((existing) => [
-          ...existing,
-          { id: uid(), role: "assistant", content: nudge }
-        ]);
-
-        return markNudged(current);
-      });
-    }, 30000);
-
-    return () => window.clearInterval(tick);
-  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -160,6 +140,18 @@ export default function App() {
         model: detected.provider.model
       }));
     }
+  }
+
+  function appendAutopilotOutput(output: string) {
+    const cleaned = output.trim();
+    if (!cleaned) return;
+
+    setMessages((existing) => [
+      ...existing.filter((message) => !message.pending),
+      { id: uid(), role: "assistant", content: cleaned }
+    ]);
+
+    setAgentState((current) => rememberLine(current, `Autopilot output: ${cleaned.slice(0, 600)}`));
   }
 
   function addScratch(kind: "memory" | "goal" | "project") {
@@ -249,7 +241,7 @@ export default function App() {
       {
         id: uid(),
         role: "assistant",
-        content: "Chat cleared. Hellhound remains awake."
+        content: "Chat cleared. Hellhound remains awake. Fake timed nudges are disabled; use real autopilot for autonomous work."
       }
     ]);
     setError("");
@@ -261,7 +253,7 @@ export default function App() {
         <div className="brand-block">
           <div className="mark">HH</div>
           <h1>Hellhound</h1>
-          <p>A different AI interface. Darker. Sharper. Web-aware. Locally self-starting.</p>
+          <p>A different AI interface. Darker. Sharper. Web-aware. Real autopilot runs through the backend.</p>
         </div>
 
         <section className="compact-grid">
@@ -313,7 +305,7 @@ export default function App() {
           <small>{selectedProvider.note}</small>
         </section>
 
-        <AutopilotPanel provider={provider} apiKey={apiKey.trim()} temperature={settings.temperature} />
+        <AutopilotPanel provider={provider} apiKey={apiKey.trim()} temperature={settings.temperature} onOutput={appendAutopilotOutput} />
 
         <section className="details">
           <label>Local agent</label>
@@ -321,7 +313,7 @@ export default function App() {
             className={agentState.enabled ? "armed" : ""}
             onClick={() => setAgentState((s) => ({ ...s, enabled: !s.enabled }))}
           >
-            {agentState.enabled ? "Autonomy on" : "Autonomy off"}
+            {agentState.enabled ? "Memory on" : "Memory off"}
           </button>
 
           <input
@@ -355,13 +347,13 @@ export default function App() {
         <header className="chat-header">
           <div>
             <span className="overline">
-              {settings.internet ? "Internet mode armed" : "Local model call only"} · {agentState.enabled ? "autonomy awake" : "autonomy off"}
+              {settings.internet ? "Internet mode armed" : "Local model call only"} · {agentState.enabled ? "memory awake" : "memory off"}
             </span>
             <h2>{provider.name} / {provider.model}</h2>
           </div>
 
           <div className="header-actions">
-            <button onClick={() => setMessages((existing) => [...existing, { id: uid(), role: "assistant", content: craftLocalNudge(agentState) }])}>Nudge</button>
+            <button onClick={() => setMessages((existing) => [...existing, { id: uid(), role: "assistant", content: craftLocalNudge(agentState) }])}>Manual nudge</button>
             <button onClick={clearChat}>Clear</button>
             {busy ? <button className="danger" onClick={stop}>Stop</button> : null}
           </div>
@@ -389,7 +381,7 @@ export default function App() {
           <textarea
             value={input}
             onChange={(event) => setInput(event.target.value)}
-            placeholder="Ask Hellhound. If Internet is armed, it will pull live context before answering."
+            placeholder="Ask Hellhound. Use real autopilot on the left when you want it to continue without another prompt."
             onKeyDown={(event) => {
               if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
                 event.preventDefault();
@@ -398,7 +390,7 @@ export default function App() {
             }}
           />
           <div className="send-row">
-            <span>Ctrl/⌘ + Enter · local memory active · Worker tools armed</span>
+            <span>Ctrl/⌘ + Enter · memory active · real autopilot available</span>
             <button className="send" onClick={() => send()} disabled={!input.trim() || busy}>Send</button>
           </div>
         </footer>
