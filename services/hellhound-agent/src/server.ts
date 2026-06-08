@@ -17,22 +17,25 @@ import { readMemory, writeMemory } from "./memory/store.js";
 const app = Fastify({ logger: true });
 await app.register(cors, { origin: true });
 
+const ProviderSchema = z.object({
+  apiKey: z.string().optional(),
+  baseUrl: z.string().min(1),
+  model: z.string().min(1),
+  temperature: z.number().optional()
+});
+
 const AgentRunSchema = z.object({
   userId: z.string().default("local-user"),
   prompt: z.string().min(1),
-  provider: z.object({
-    apiKey: z.string().optional(),
-    baseUrl: z.string(),
-    model: z.string(),
-    temperature: z.number().optional()
-  }).optional()
+  provider: ProviderSchema.optional()
 });
 
 const AutopilotStartSchema = z.object({
   userId: z.string().default("local-user"),
   objective: z.string().min(1),
   kind: z.enum(["book", "paper", "code", "research", "project", "conversation", "general"]).optional(),
-  maxSteps: z.number().int().min(1).max(80).optional()
+  maxSteps: z.number().int().min(1).max(80).optional(),
+  provider: ProviderSchema.optional()
 });
 
 app.get("/health", async () => ({
