@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ProviderPreset } from "./providers";
 
 type Job = {
@@ -19,21 +19,43 @@ type Props = {
   provider: ProviderPreset;
   apiKey: string;
   temperature: number;
+  onOutput?: (output: string, job: Job) => void;
 };
 
 const AGENT_URL_KEY = "hellhound-agent-url";
 
-export default function AutopilotPanel({ provider, apiKey, temperature }: Props) {
+export default function AutopilotPanel({ provider, apiKey, temperature, onOutput }: Props) {
   const [agentUrl, setAgentUrl] = useState(() => localStorage.getItem(AGENT_URL_KEY) || "http://127.0.0.1:18888");
   const [objective, setObjective] = useState("Say hi, then suggest one useful thing I should do next, then continue without waiting.");
   const [kind, setKind] = useState("conversation");
   const [maxSteps, setMaxSteps] = useState(3);
   const [job, setJob] = useState<Job | null>(null);
   const [error, setError] = useState("");
+  const activeJobIdRef = useRef("");
+  const seenOutputCountRef = useRef(0);
 
   useEffect(() => {
     localStorage.setItem(AGENT_URL_KEY, agentUrl);
   }, [agentUrl]);
+
+  function absorbJob(nextJob: Job) {
+    if (activeJobIdRef.current !== nextJob.id) {
+      activeJobIdRef.current = nextJob.id;
+      seenOutputCountRef.current = 0;
+    }
+
+    const outputs = nextJob.outputs || [];
+    const unseen = outputs.slice(seenOutputCountRef.current);
+
+    if (onOutput && unseen.length > 0) {
+      for (const output of unseen) {
+        onOutput(output, nextJob);
+      }
+    }
+
+    seenOutputCountRef.current = outputs.length;
+    setJob(nextJob);
+  }
 
   useEffect(() => {
     if (!job?.id) return;
@@ -42,11 +64,11 @@ export default function AutopilotPanel({ provider, apiKey, temperature }: Props)
       try {
         const res = await fetch(`${agentUrl}/autopilot/jobs/${job.id}`);
         const data = await res.json();
-        if (data?.job) setJob(data.job);
+        if (data?.job) absorbJob(data.job);
       } catch {
         // Polling stays quiet unless the user manually starts/actions.
       }
-    }, 3000);
+    }, 2500);
 
     return () => window.clearInterval(timer);
   }, [agentUrl, job?.id]);
@@ -83,7 +105,7 @@ export default function AutopilotPanel({ provider, apiKey, temperature }: Props)
       return;
     }
 
-    setJob(data.job);
+    if (data?.job) absorbJob(data.job);
   }
 
   async function action(path: string) {
@@ -98,7 +120,7 @@ export default function AutopilotPanel({ provider, apiKey, temperature }: Props)
       return;
     }
 
-    setJob(data.job);
+    if (data?.job) absorbJob(data.job);
   }
 
   const latest = job?.outputs?.[job.outputs.length - 1] || "No autopilot output yet.";
@@ -132,7 +154,7 @@ export default function AutopilotPanel({ provider, apiKey, temperature }: Props)
       </div>
 
       <div className="header-actions">
-        <button className="armed" onClick={start}>Start autopilot</button>
+        <button className="armed" onClick={start}>Start real autopilot</button>
         <button onClick={() => action("step")} disabled={!job || job.status === "done"}>Step now</button>
         <button onClick={() => action(job?.status === "paused" ? "resume" : "pause")} disabled={!job || job.status === "done"}>
           {job?.status === "paused" ? "Resume" : "Pause"}
@@ -145,10 +167,11 @@ export default function AutopilotPanel({ provider, apiKey, temperature }: Props)
         <>
           <small>{job.status} · step {job.currentStep}/{job.maxSteps}</small>
           <small>Next: {next}</small>
+          {job.error ? <small>{job.error}</small> : null}
           <div className="autopilot-output">{latest}</div>
         </>
       ) : (
-        <small>This starts a backend job that keeps stepping without another user prompt.</small>
+        <small>Starts a backend job that keeps stepping and streams each real output into the main chat.</small>
       )}
     </section>
   );
