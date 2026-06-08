@@ -10,6 +10,13 @@ export type AutopilotKind =
   | "conversation"
   | "general";
 
+type AutopilotProvider = {
+  apiKey?: string;
+  baseUrl: string;
+  model: string;
+  temperature?: number;
+};
+
 export type AutopilotJob = {
   id: string;
   userId: string;
@@ -28,6 +35,7 @@ export type AutopilotJob = {
 };
 
 const jobs = new Map<string, AutopilotJob>();
+const jobProviders = new Map<string, AutopilotProvider>();
 let loopStarted = false;
 
 function now() {
@@ -88,6 +96,7 @@ export function createAutopilotJob(input: {
   objective: string;
   kind?: AutopilotKind;
   maxSteps?: number;
+  provider?: AutopilotProvider;
 }) {
   const kind = input.kind || inferKind(input.objective);
   const maxSteps = Math.min(Math.max(input.maxSteps || (kind === "book" ? 52 : 8), 1), 80);
@@ -109,6 +118,7 @@ export function createAutopilotJob(input: {
   };
 
   jobs.set(job.id, job);
+  if (input.provider) jobProviders.set(job.id, input.provider);
   ensureAutopilotLoop();
   return job;
 }
@@ -179,7 +189,8 @@ Instructions:
   try {
     const result = await runAgent({
       userId: job.userId,
-      prompt
+      prompt,
+      provider: jobProviders.get(job.id)
     });
 
     const reply = result.reply || "";
@@ -196,6 +207,7 @@ Instructions:
 
     if (job.currentStep >= job.maxSteps) {
       job.status = "done";
+      jobProviders.delete(job.id);
     }
 
     return job;
