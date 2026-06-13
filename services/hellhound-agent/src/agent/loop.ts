@@ -1,6 +1,15 @@
+import { nanoid } from "nanoid";
 import { buildDecisionPacket } from "../lolm/controller.js";
 import { readMemory, writeMemory } from "../memory/store.js";
-import { createReceipt } from "../receipts/receipt.js";
+import {
+  createReceipt,
+  createReceiptV2,
+  buildToolCalls,
+  deriveOutcome,
+  type ControlEvent,
+  type DecisionSource,
+  type Surface
+} from "../receipts/receipt.js";
 import { searchNews, searchWeb } from "../tools/web.js";
 import { runSandbox } from "../tools/sandbox.js";
 import { answerWithProvider, ProviderMessage } from "../providers/answer.js";
@@ -8,6 +17,8 @@ import { answerWithProvider, ProviderMessage } from "../providers/answer.js";
 export type AgentRunInput = {
   userId: string;
   prompt: string;
+  surface?: Surface;
+  previousHash?: string;
   provider?: {
     apiKey?: string;
     baseUrl: string;
@@ -15,6 +26,15 @@ export type AgentRunInput = {
     temperature?: number;
   };
 };
+
+function providerVendor(baseUrl: string): string {
+  const u = baseUrl.toLowerCase();
+  if (u.includes("openrouter")) return "openrouter";
+  if (u.includes("anthropic")) return "anthropic";
+  if (u.includes("groq")) return "groq";
+  if (u.includes("openai")) return "openai";
+  return "custom";
+}
 
 function hellhoundSystem() {
   return `You are Hellhound.
@@ -33,20 +53,33 @@ export async function runAgent(input: AgentRunInput) {
   const memory = await readMemory(input.userId, 24);
 
   const toolResults: Record<string, unknown> = {};
+  const toolCallLog: Array<{ name: string; args: unknown; result: unknown; durationMs: number }> = [];
+  const controlEvents: ControlEvent[] = [];
+  // The controller is regex/heuristic mode-routing; state that honestly rather
+  // than implying a trained uncertainty head decided.
+  const decisionSources: DecisionSource[] = ["heuristic"];
 
   if (decisionPacket.decision.shouldSearch) {
     const isNews = decisionPacket.decision.mode === "news" || /\b(news|article|latest|today)\b/i.test(input.prompt);
-    toolResults.search = isNews
-      ? await searchNews(input.prompt)
-      : await searchWeb(input.prompt);
+    const t0 = Date.now();
+    const result = isNews ? await searchNews(input.prompt) : await searchWeb(input.prompt);
+    toolResults.search = result;
+    toolCallLog.push({ name: isNews ? "web.news" : "web.search", args: { query: input.prompt }, result, durationMs: Date.now() - t0 });
+    controlEvents.push("retrieve");
+    decisionSources.push("tool_result");
   }
 
   if (decisionPacket.decision.shouldRunCode) {
-    toolResults.sandbox = await runSandbox({
+    const t0 = Date.now();
+    const result = await runSandbox({
       kind: "command",
       command: input.prompt,
       timeoutMs: 20000
     }).catch((error) => ({ error: error.message }));
+    toolResults.sandbox = result;
+    toolCallLog.push({ name: "sandbox.run", args: { command: input.prompt }, result, durationMs: Date.now() - t0 });
+    controlEvents.push("verify");
+    decisionSources.push("tool_result");
   }
 
   const provider = input.provider || {
@@ -78,6 +111,9 @@ export async function runAgent(input: AgentRunInput) {
     importance: 0.55
   });
 
+  controlEvents.push("finish");
+
+  // v1 receipt retained for back-compat.
   const receipt = createReceipt({
     userId: input.userId,
     action: decisionPacket.decision.nextAction,
@@ -86,11 +122,43 @@ export async function runAgent(input: AgentRunInput) {
     memoryDelta
   });
 
+  // v2 receipt: decision packet + every tool call WITH its verified outcome +
+  // an honest run outcome. An audit trail for behavior, not a label on text.
+  const toolCalls = buildToolCalls(toolCallLog);
+  const outcome = deriveOutcome(toolCalls, reply);
+  const latent = decisionPacket.latent;
+  const receiptV2 = createReceiptV2({
+    previousHash: input.previousHash,
+    runId: nanoid(),
+    userId: input.userId,
+    surface: input.surface ?? "backend",
+    provider: { vendor: providerVendor(provider.baseUrl), model: provider.model, temperature: provider.temperature ?? null },
+    intent: input.prompt,
+    decisionPacket: {
+      mode: decisionPacket.decision.mode,
+      confidence: decisionPacket.decision.confidence,
+      toolNeed: latent.toolNeed,
+      memoryNeed: latent.memoryNeed,
+      receiptNeed: latent.receiptNeed
+    },
+    controlEvents,
+    decisionSources,
+    toolCalls,
+    evidenceIds: Object.keys(toolResults).map((k) => `tool:${k}`),
+    safety: {
+      blockedActions: [],
+      confirmationRequired: decisionPacket.decision.mode === "warning",
+      confirmationResult: "n/a"
+    },
+    outcome
+  });
+
   return {
     reply,
     decision: decisionPacket.decision,
     toolResults,
     memoryDelta,
-    receipt
+    receipt,
+    receiptV2
   };
 }
