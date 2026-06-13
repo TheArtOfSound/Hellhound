@@ -1,0 +1,117 @@
+name: Build APK
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Assemble debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: "8.5"
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Bootstrap Gradle wrapper
+        run: gradle wrapper --gradle-version 8.5 --distribution-type bin
+
+      - name: Assemble debug APK
+        shell: bash
+        env:
+          CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon assembleDebug --stacktrace --info 2>&1 | tee build.log
+
+      - name: Upload build log on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Post build error to PR on failure
+        if: failure() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ ! -f build.log ]; then
+            echo "no build.log to post"
+            exit 0
+          fi
+          {
+            echo '<!-- ci-build-error -->'
+            echo '### Build failed at `${{ github.sha }}`'
+            echo '<details><summary>Last 200 lines of build.log</summary>'
+            echo
+            echo '```'
+            tail -n 200 build.log
+            echo '```'
+            echo '</details>'
+          } > /tmp/comment.md
+          gh api -X POST \
+            "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+            -f body="$(cat /tmp/comment.md)"
+
+      - name: Compute slash-safe tag
+        id: tag
+        run: |
+          SAFE=$(echo "${{ github.ref_name }}" | tr '/' '-')
+          echo "name=edge-$SAFE" >> "$GITHUB_OUTPUT"
+
+      - name: Rename APK with short SHA
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/*.apk "dist/hellhound-${SHORT_SHA}.apk"
+          ls -la dist/
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hellhound-debug-apk
+          path: dist/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish rolling pre-release (edge)
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.name }}
+          name: "Hellhound — ${{ github.ref_name }} (latest)"
+          prerelease: true
+          generate_release_notes: false
+          body: |
+            Latest debug-signed APK from `${{ github.ref_name }}` @ ${{ github.sha }}.
+            Sideload: enable "Install from unknown sources" for your browser, then tap the APK.
+          files: dist/*.apk
+          fail_on_unmatched_files: true
+          make_latest: "false"

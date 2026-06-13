@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Hellhound</string>
+    <string name="accessibility_service_label">Hellhound screen reader</string>
+    <string name="accessibility_service_description">Lets Hellhound read on-screen text so the assistant can answer questions about what you are looking at. You can disable this at any time in Settings &gt; Accessibility.</string>
+    <string name="notification_listener_label">Hellhound notification access</string>
+
+    <string name="permissions_title">Optional access</string>
+    <string name="permissions_subtitle">Hellhound works without these. Enable only if you want the assistant to see context.</string>
+    <string name="permission_accessibility_title">On-screen text</string>
+    <string name="permission_accessibility_body">Read text from foreground apps so the assistant can answer "what does this say?" questions.</string>
+    <string name="permission_notifications_title">Notifications</string>
+    <string name="permission_notifications_body">See incoming notifications so you can ask the assistant to summarize or act on them.</string>
+    <string name="permission_open_settings">Open settings</string>
+    <string name="permission_enabled">Enabled</string>
+    <string name="permission_disabled">Disabled</string>
+
+    <string name="chat_hint">Message Hellhound</string>
+    <string name="chat_send">Send</string>
+    <string name="chat_empty">Ask anything. Powered by Cerebras.</string>
+    <string name="chat_empty_no_key">Tap Settings below and paste your Cerebras API key to begin. Sign up at cloud.cerebras.ai.</string>
+    <string name="chat_settings">Settings</string>
+    <string name="settings_api_key_label">Cerebras API key</string>
+    <string name="settings_model_label">Model</string>
+    <string name="settings_model_active">Active: %1$s</string>
+    <string name="settings_model_custom_label">Custom model ID</string>
+    <string name="settings_model_use">Use</string>
+    <string name="settings_model_refresh">Refresh from server</string>
+    <string name="settings_save">Save</string>
+    <string name="settings_clear">Clear</string>
+    <string name="settings_system_prompt_label">System prompt</string>
+    <string name="settings_system_prompt_reset">Reset to default</string>
+    <string name="settings_auto_send_voice">Auto-send voice input</string>
+    <string name="settings_agent_mode">Agent mode (let Hellhound use tools)</string>
+    <string name="settings_agent_mode_body">When on, the model can call get_screen_text, get_recent_notifications, get_clipboard, get_device_info, and now() to ground its replies. Streaming is disabled in this mode.</string>
+    <string name="settings_auto_speak">Auto-speak replies</string>
+    <string name="settings_auto_speak_body">After each reply finishes, read it aloud via the system text-to-speech engine.</string>
+    <string name="settings_voice_first">Voice-first mode</string>
+    <string name="settings_voice_first_body">Replaces the chat input with a big mic button. Voice input auto-sends and replies are auto-spoken — fully hands-free.</string>
+    <string name="settings_daily_briefing">Daily briefing on first open</string>
+    <string name="settings_daily_briefing_body">The first time you open Hellhound each day, the agent automatically runs a briefing turn — time, battery, notifications, then asks what you want to do today. Costs one Cerebras call per day.</string>
+</resources>

@@ -1,0 +1,32 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/app/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# dependencies
+node_modules/
+**/node_modules/
+
+# builds
+dist/
+**/dist/
+*.tsbuildinfo
+
+# local env / secrets
+.env
+.env.*
+!.env.example
+
+# mac
+.DS_Store
